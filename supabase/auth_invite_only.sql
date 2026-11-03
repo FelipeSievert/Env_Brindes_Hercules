@@ -59,6 +59,22 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Bloqueia a antiga tabela interna criada pelo Figma Make, quando existir.
+-- Somente o backend privilegiado poderá acessá-la.
+DO $
+DECLARE old_policy RECORD;
+BEGIN
+  IF to_regclass('public.kv_store_8d3e443d') IS NOT NULL THEN
+    ALTER TABLE public.kv_store_8d3e443d ENABLE ROW LEVEL SECURITY;
+    FOR old_policy IN SELECT policyname FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = 'kv_store_8d3e443d'
+    LOOP
+      EXECUTE format('DROP POLICY %I ON public.kv_store_8d3e443d', old_policy.policyname);
+    END LOOP;
+    REVOKE ALL ON public.kv_store_8d3e443d FROM PUBLIC, anon, authenticated;
+  END IF;
+END $;
+
 -- Protege RPCs que alteram estoque. RLS da tabela brindes permanece em vigor.
 DO $$
 BEGIN

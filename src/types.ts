@@ -5,6 +5,7 @@ export type Page =
   | "nova-declaracao"
   | "declaracoes"
   | "configuracoes"
+  | "usuarios"
   | "declaracao-preview"
   | "importar-word";
 

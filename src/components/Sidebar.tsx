@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Gift, FilePlus, FileText,
-  Settings, Zap, FileUp,
+  Settings, Zap, FileUp, UserCog, LogOut,
 } from "lucide-react";
 import { Page, Notificacao } from "../types";
 import NotificacoesPanel from "./NotificacoesPanel";
@@ -11,6 +11,8 @@ interface SidebarProps {
   notificacoes: Notificacao[];
   onUpdateNotificacoes: (updated: Notificacao[]) => void;
   onNavigateToDeclaracao: (declaracaoId: string) => void;
+  isAdmin: boolean;
+  onSignOut: () => void;
 }
 
 const navItems: { label: string; page: Page; icon: React.ReactNode }[] = [
@@ -25,6 +27,7 @@ const navItems: { label: string; page: Page; icon: React.ReactNode }[] = [
 
 export default function Sidebar({
   currentPage, onNavigate, notificacoes, onUpdateNotificacoes, onNavigateToDeclaracao,
+  isAdmin, onSignOut,
 }: SidebarProps) {
   return (
     <aside className="w-60 min-h-screen bg-[#1A3A6B] flex flex-col shrink-0">
@@ -70,8 +73,13 @@ export default function Sidebar({
             </button>
           );
         })}
+        {isAdmin && <button onClick={() => onNavigate("usuarios")}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-['Inter'] font-500 text-left ${currentPage === "usuarios" ? "bg-white text-[#1A3A6B]" : "text-white/70 hover:bg-white/10 hover:text-white"}`}>
+          <UserCog size={18} /> Gerenciar usuários
+        </button>}
       </nav>
 
+      <div className="px-4 py-3 border-t border-white/10"><button onClick={onSignOut} className="flex items-center gap-2 text-sm text-white/80 hover:text-white"><LogOut size={16} /> Sair da conta</button></div>
       <div className="px-6 py-4 border-t border-white/10">
         <p className="text-white/30 text-[10px] font-['Inter']">Sistema de Declaração v1.0</p>
       </div>

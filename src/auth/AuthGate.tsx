@@ -91,9 +91,14 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       if (event === "PASSWORD_RECOVERY") setRecovering(true);
       setSession(updated);
     });
-    supabase.auth.getSession().then(({ data }) => { if (mounted) setSession(data.session); })
-      .catch(() => { if (mounted) setError("Não foi possível verificar sua sessão."); })
-      .finally(() => { if (mounted && !session) setLoading(false); });
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted) return;
+      setSession(data.session);
+      if (error) setError("Não foi possível verificar sua sessão.");
+      if (error || !data.session) setLoading(false);
+    }).catch(() => {
+      if (mounted) { setError("Não foi possível verificar sua sessão."); setLoading(false); }
+    });
     return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 

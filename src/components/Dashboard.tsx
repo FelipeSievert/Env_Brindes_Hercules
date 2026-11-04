@@ -12,11 +12,16 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   gerada: { label: "Gerada", color: "bg-blue-100 text-blue-700" },
   impressa: { label: "Impressa", color: "bg-amber-100 text-amber-700" },
   enviada: { label: "Enviada", color: "bg-green-100 text-green-700" },
+  informado: { label: "Informado", color: "bg-green-100 text-green-700" },
+  devolvido: { label: "Devolvido", color: "bg-orange-100 text-orange-700" },
+  gerado: { label: "Gerado", color: "bg-blue-100 text-blue-700" },
 };
+const fallbackStatus = { label: "Outro status", color: "bg-slate-100 text-slate-700" };
 
 export default function Dashboard({ destinatarios, brindes, declaracoes, onNavigate }: DashboardProps) {
-  const totalEstoque = brindes.reduce((s, b) => s + b.quantidade, 0);
-  const decsMes = declaracoes.filter((d) => d.data.includes("/09/2026") || d.data.includes("/08/2026")).length;
+  const totalEstoque = brindes.reduce((s, b) => s + (Number(b.quantidade) || 0), 0);
+  const mesAtual = new Date().toLocaleDateString("pt-BR").slice(3);
+  const decsMes = declaracoes.filter((d) => typeof d.data === "string" && d.data.endsWith(mesAtual)).length;
 
   const cards = [
     {
@@ -128,14 +133,17 @@ export default function Dashboard({ destinatarios, brindes, declaracoes, onNavig
           </thead>
           <tbody>
             {declaracoes.map((d, i) => {
-              const s = statusLabel[d.status];
+              const s = statusLabel[String(d.status ?? "").toLowerCase()] ?? {
+                ...fallbackStatus,
+                label: String(d.status ?? "Desconhecido"),
+              };
               return (
                 <tr key={d.id} className={i % 2 === 0 ? "bg-white" : "bg-[#F8FAFC]"}>
                   <td className="px-6 py-3.5 text-sm font-['JetBrains_Mono',monospace] text-[#1A3A6B] font-500">{d.numero}</td>
-                  <td className="px-6 py-3.5 text-sm text-[#1E293B] font-['Inter']">{d.destinatario.nome}</td>
+                  <td className="px-6 py-3.5 text-sm text-[#1E293B] font-['Inter']">{d.destinatario?.nome ?? "Destinatário não informado"}</td>
                   <td className="px-6 py-3.5 text-sm text-[#64748B] font-['Inter']">{d.data}</td>
                   <td className="px-6 py-3.5 text-sm text-[#1E293B] font-['Inter']">{d.totalItens}</td>
-                  <td className="px-6 py-3.5 text-sm text-[#1E293B] font-['Inter']">{d.pesoTotal.toFixed(2)} kg</td>
+                  <td className="px-6 py-3.5 text-sm text-[#1E293B] font-['Inter']">{(Number(d.pesoTotal) || 0).toFixed(2)} kg</td>
                   <td className="px-6 py-3.5">
                     <span className={`text-[11px] font-['Inter'] font-600 px-2 py-1 rounded-full ${s.color}`}>
                       {s.label}

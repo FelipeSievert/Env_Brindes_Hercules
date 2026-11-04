@@ -11,8 +11,10 @@ import DeclaracaoPreview from "./components/DeclaracaoPreview";
 import DeclaracoesGeradas from "./components/DeclaracoesGeradas";
 import ConfiguracoesTela from "./components/Configuracoes";
 import ImportarDeclaracoesWord from "./components/ImportarDeclaracoesWord";
+import { useAuth } from "./auth/AuthGate";
 
 export default function App() {
+  const { signOut } = useAuth();
   const [page, setPage]                 = useState<Page>("dashboard");
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [brindes, setBrindes]           = useState<Brinde[]>([]);
@@ -161,6 +163,7 @@ export default function App() {
     <div className="flex h-full bg-[#F1F4F8]">
       <Sidebar
         currentPage={page}
+        onSignOut={() => { void signOut(); }}
         onNavigate={handleNavigate}
         notificacoes={notificacoes}
         onUpdateNotificacoes={setNotificacoes}

@@ -49,7 +49,7 @@ export default function NovaDeclaracao({ destinatarios, brindes, config, onGener
   );
 
   function addDest(d: Destinatario) {
-    setSelectedDests((prev) => [...prev, d]);
+    setSelectedDests((prev) => [...prev, { ...d }]);
     setDestSearch("");
   }
 
@@ -86,30 +86,25 @@ export default function NovaDeclaracao({ destinatarios, brindes, config, onGener
   });
 
   async function handleGenerate() {
-    if (!selectedDests.length || !items.length) return;
+    if (generating || !selectedDests.length || !items.length || stockWarnings.length) return;
     setGenerating(true);
     setGenError(null);
 
     try {
       const date = todayFormatted();
-      let lastDec: Declaracao | null = null;
-
-      for (const dest of selectedDests) {
-        const num = `DC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
-        const dec: Omit<Declaracao, "id"> = {
-          numero: num,
-          destinatario: dest,
-          itens: items,
-          data: date,
-          local,
-          status: "gerada",
-          responsavel: responsavel.trim() || undefined,
-          totalItens,
-          pesoTotal,
-        };
-        const saved = await db.insertDeclaracao(dec);
-        lastDec = saved;
-      }
+      const batch: Omit<Declaracao, "id">[] = selectedDests.map(dest => ({
+        numero: `DC-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+        destinatario: dest,
+        itens: items,
+        data: date,
+        local,
+        status: "gerado",
+        responsavel: responsavel.trim() || undefined,
+        totalItens,
+        pesoTotal,
+      }));
+      const saved = await db.insertDeclaracoes(batch);
+      const lastDec = saved[saved.length - 1];
 
       if (lastDec) {
         onGenerate(lastDec);
@@ -227,8 +222,7 @@ export default function NovaDeclaracao({ destinatarios, brindes, config, onGener
                 className="w-full pl-9 pr-4 py-3 border border-[#DDE3EC] rounded text-sm font-['Inter'] text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#1A3A6B]/30 focus:border-[#1A3A6B]"
               />
             </div>
-            {(destSearch || destCategoria) && (
-              <div className="border border-[#DDE3EC] rounded overflow-hidden">
+            <div className="border border-[#DDE3EC] rounded overflow-hidden">
                 {filteredDest.slice(0, 8).map((d) => (
                   <button key={d.id} onClick={() => addDest(d)}
                     className="w-full px-4 py-3 text-left hover:bg-[#EEF2F7] border-b border-[#DDE3EC]/60 last:border-0 flex items-center justify-between">
@@ -245,18 +239,22 @@ export default function NovaDeclaracao({ destinatarios, brindes, config, onGener
                   </button>
                 ))}
                 {filteredDest.length === 0 && <p className="px-4 py-3 text-sm text-[#64748B] font-['Inter']">Nenhum resultado.</p>}
+                {filteredDest.length > 8 && <p className="px-4 py-2 text-xs text-[#64748B]">Exibindo 8 de {filteredDest.length}. Pesquise para encontrar outros destinatários.</p>}
               </div>
-            )}
             {selectedDests.length > 0 && (
               <div className="space-y-2">
                 <p className="text-[10px] font-['Inter'] font-600 uppercase tracking-[0.08em] text-[#1A3A6B]">Selecionados ({selectedDests.length})</p>
                 {selectedDests.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between bg-[#F1F4F8] border border-[#DDE3EC] rounded px-4 py-2.5">
-                    <div>
+                  <div key={d.id} className="flex items-start justify-between gap-4 bg-[#F1F4F8] border border-[#DDE3EC] rounded px-4 py-3">
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-['Inter'] font-500 text-[#1E293B]">{d.nome}</p>
                       <p className="text-xs text-[#64748B]">{d.endereco}, {d.numero} — {d.cidade}/{d.uf}</p>
+                      <label className="block mt-3 text-xs text-[#475569]" htmlFor={`ac-${d.id}`}>A/C — Aos cuidados de (opcional)</label>
+                      <input id={`ac-${d.id}`} maxLength={160} value={d.aosCuidados ?? ""}
+                        onChange={e => setSelectedDests(prev => prev.map(dest => dest.id === d.id ? { ...dest, aosCuidados: e.target.value } : dest))}
+                        placeholder="Nome da pessoa ou setor" className="mt-1 w-full max-w-lg bg-white border border-[#DDE3EC] rounded px-3 py-2 text-sm text-[#1E293B]" />
                     </div>
-                    <button onClick={() => removeDest(d.id)} className="text-[#64748B] hover:text-[#D42B1E] transition-colors"><X size={15} /></button>
+                    <button aria-label={`Remover ${d.nome}`} onClick={() => removeDest(d.id)} className="text-[#64748B] hover:text-[#D42B1E] transition-colors"><X size={15} /></button>
                   </div>
                 ))}
               </div>
@@ -391,6 +389,7 @@ export default function NovaDeclaracao({ destinatarios, brindes, config, onGener
                 <span className="text-[#64748B]">Destinatário(s):</span>{" "}
                 <span className="font-500">{selectedDests.map(d => d.nome).join(", ") || "–"}</span>
               </p>
+              {selectedDests.filter(d => d.aosCuidados?.trim()).map(d => <p key={d.id} className="text-sm text-[#475569]">{d.nome} · A/C: <strong>{d.aosCuidados?.trim()}</strong></p>)}
               <p className="text-sm font-['Inter'] text-[#1E293B]">
                 <span className="text-[#64748B]">Data automática:</span>{" "}
                 <span className="font-500">{todayFormatted()}</span>

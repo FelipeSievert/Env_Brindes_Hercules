@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Declaracao, calcStatusRastreio, StatusRastreio } from "../types";
 import * as db from "../lib/db";
+import { declarationStatuses } from "../lib/declarationStatus";
 
 interface Props {
   declaracoes: Declaracao[];
@@ -14,15 +15,7 @@ interface Props {
   onUpdateRastreio: (id: string, codigo: string) => void;
 }
 
-const statusInfo: Record<string, { label: string; color: string }> = {
-  gerada:   { label: "Gerada",   color: "bg-blue-100 text-blue-700" },
-  impressa: { label: "Impressa", color: "bg-amber-100 text-amber-700" },
-  enviada:  { label: "Enviada",  color: "bg-green-100 text-green-700" },
-  gerado:   { label: "Gerado",   color: "bg-blue-100 text-blue-700" },
-  informado:{ label: "Informado", color: "bg-green-100 text-green-700" },
-  devolvido:{ label: "Devolvido", color: "bg-orange-100 text-orange-700" },
-};
-const fallbackStatus = { label: "Outro status", color: "bg-slate-100 text-slate-700" };
+const statusInfo = declarationStatuses;
 
 const rastreioConfig: Record<StatusRastreio, { label: string; dot: string; text: string }> = {
   informado:  { label: "Rastreio informado",       dot: "bg-green-500",  text: "text-green-700" },
@@ -125,9 +118,7 @@ export default function DeclaracoesGeradas({
           className="border border-[#DDE3EC] rounded px-3 py-2.5 text-sm font-['Inter'] text-[#1E293B] bg-white focus:outline-none focus:ring-2 focus:ring-[#1A3A6B]/30"
         >
           <option value="todos">Todos os status</option>
-          <option value="gerada">Gerada</option>
-          <option value="impressa">Impressa</option>
-          <option value="enviada">Enviada</option>
+          {Object.entries(statusInfo).map(([value, info]) => <option key={value} value={value}>{info.label}</option>)}
         </select>
         <select
           value={filterRastreio}
@@ -155,10 +146,7 @@ export default function DeclaracoesGeradas({
           </thead>
           <tbody>
             {filtered.map((dec, i) => {
-              const s = statusInfo[String(dec.status ?? "").toLowerCase()] ?? {
-                ...fallbackStatus,
-                label: String(dec.status ?? "Desconhecido"),
-              };
+              const s = statusInfo[dec.status];
               const rastreioSt = calcStatusRastreio(dec);
               const isPendente = rastreioSt === "pendente";
               const isEditingThis = editingRastreio === dec.id;

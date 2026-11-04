@@ -76,8 +76,9 @@ export default function App() {
     setPreviewDec(dec);
     setPage("declaracao-preview");
     try {
-      const updated = await db.fetchBrindes();
+      const [updated, allDeclarations] = await Promise.all([db.fetchBrindes(), db.fetchDeclaracoes()]);
       setBrindes(updated);
+      setDeclaracoes(allDeclarations);
     } catch (_) {}
   }
 
@@ -89,8 +90,8 @@ export default function App() {
   async function handleDuplicate(dec: Declaracao) {
     const copy: Omit<Declaracao, "id"> = {
       ...dec,
-      numero: `DC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`,
-      status: "gerada",
+      numero: `DC-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+      status: "gerado",
       data: new Date().toLocaleDateString("pt-BR"),
       codigoRastreio: "",
       lembreteRastreioEnviado: false,
@@ -99,6 +100,7 @@ export default function App() {
     try {
       const saved = await db.insertDeclaracao(copy);
       setDeclaracoes((prev) => [saved, ...prev]);
+      setBrindes(await db.fetchBrindes());
     } catch (e) {
       alert(e instanceof Error ? e.message : "Erro ao duplicar declaração.");
     }

@@ -1,5 +1,8 @@
 import { Users, Gift, Package, FileText, Plus, ArrowRight, TrendingUp } from "lucide-react";
 import { Destinatario, Brinde, Declaracao, Page } from "../types";
+import DashboardCharts from "./DashboardCharts";
+import { declarationStatuses } from "../lib/declarationStatus";
+import { parseDeclarationDate } from "../lib/dashboard";
 
 interface DashboardProps {
   destinatarios: Destinatario[];
@@ -8,20 +11,15 @@ interface DashboardProps {
   onNavigate: (page: Page) => void;
 }
 
-const statusLabel: Record<string, { label: string; color: string }> = {
-  gerada: { label: "Gerada", color: "bg-blue-100 text-blue-700" },
-  impressa: { label: "Impressa", color: "bg-amber-100 text-amber-700" },
-  enviada: { label: "Enviada", color: "bg-green-100 text-green-700" },
-  informado: { label: "Informado", color: "bg-green-100 text-green-700" },
-  devolvido: { label: "Devolvido", color: "bg-orange-100 text-orange-700" },
-  gerado: { label: "Gerado", color: "bg-blue-100 text-blue-700" },
-};
 const fallbackStatus = { label: "Outro status", color: "bg-slate-100 text-slate-700" };
 
 export default function Dashboard({ destinatarios, brindes, declaracoes, onNavigate }: DashboardProps) {
   const totalEstoque = brindes.reduce((s, b) => s + (Number(b.quantidade) || 0), 0);
-  const mesAtual = new Date().toLocaleDateString("pt-BR").slice(3);
-  const decsMes = declaracoes.filter((d) => typeof d.data === "string" && d.data.endsWith(mesAtual)).length;
+  const now = new Date();
+  const decsMes = declaracoes.filter(d => {
+    const date = parseDeclarationDate(d.data);
+    return date?.getFullYear() === now.getFullYear() && date?.getMonth() === now.getMonth();
+  }).length;
 
   const cards = [
     {
@@ -55,7 +53,7 @@ export default function Dashboard({ destinatarios, brindes, declaracoes, onNavig
   ];
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-['Outfit'] font-700 text-[#1E293B]">Dashboard</h1>
@@ -63,7 +61,7 @@ export default function Dashboard({ destinatarios, brindes, declaracoes, onNavig
       </div>
 
       {/* Cards */}
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
         {cards.map((card) => (
           <button
             key={card.label}
@@ -83,7 +81,7 @@ export default function Dashboard({ destinatarios, brindes, declaracoes, onNavig
       </div>
 
       {/* Quick actions */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <button
           onClick={() => onNavigate("nova-declaracao")}
           className="flex items-center gap-2 px-4 py-2.5 bg-[#1A3A6B] text-white rounded text-sm font-['Inter'] font-500 hover:bg-[#15305a] transition-colors"
@@ -107,8 +105,10 @@ export default function Dashboard({ destinatarios, brindes, declaracoes, onNavig
         </button>
       </div>
 
+      <DashboardCharts declaracoes={declaracoes} />
+
       {/* Recent declarations */}
-      <div className="bg-white rounded-[6px] border border-[#DDE3EC]">
+      <div className="bg-white rounded-[6px] border border-[#DDE3EC] overflow-x-auto">
         <div className="px-6 py-4 border-b border-[#DDE3EC] flex items-center justify-between">
           <h2 className="font-['Outfit'] font-600 text-[#1E293B]">Declarações Recentes</h2>
           <button
@@ -132,8 +132,8 @@ export default function Dashboard({ destinatarios, brindes, declaracoes, onNavig
             </tr>
           </thead>
           <tbody>
-            {declaracoes.map((d, i) => {
-              const s = statusLabel[String(d.status ?? "").toLowerCase()] ?? {
+            {declaracoes.slice(0, 6).map((d, i) => {
+              const s = declarationStatuses[d.status] ?? {
                 ...fallbackStatus,
                 label: String(d.status ?? "Desconhecido"),
               };
@@ -152,6 +152,7 @@ export default function Dashboard({ destinatarios, brindes, declaracoes, onNavig
                 </tr>
               );
             })}
+            {!declaracoes.length && <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-[#64748B]">Nenhuma declaração cadastrada.</td></tr>}
           </tbody>
         </table>
       </div>

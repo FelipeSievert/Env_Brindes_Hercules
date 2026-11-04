@@ -12,6 +12,7 @@ export type Page =
 export interface Destinatario {
   id: string;
   nome: string;
+  aosCuidados?: string;
   cpfCnpj: string;
   cep: string;
   endereco: string;
@@ -39,7 +40,7 @@ export interface ItemDeclaracao {
   pesoTotal: number;
 }
 
-export type StatusDeclaracao = "gerada" | "impressa" | "enviada";
+export type StatusDeclaracao = "gerado" | "informado" | "devolvido" | "cancelado";
 
 export type StatusRastreio = "informado" | "aguardando" | "pendente";
 

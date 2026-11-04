@@ -1,13 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { supabase } from "../lib/supabase";
+import { callManageUsers } from "../lib/manageUsers";
 import { useAuth, type SystemRole, type SystemStatus, type SystemUser } from "../auth/AuthGate";
 
-async function callManageUsers(action: string, params: Record<string, unknown> = {}) {
-  const { data, error } = await supabase.functions.invoke("manage-users", { body: { action, ...params } });
-  if (error) throw error;
-  if (data?.error) throw new Error(String(data.error));
-  return data as { users?: SystemUser[] };
-}
 export default function AdministrarUsuarios() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState<SystemUser[]>([]);

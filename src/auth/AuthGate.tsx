@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { callManageUsers } from "../lib/manageUsers";
 
 export type SystemRole = "admin" | "operator";
 export type SystemStatus = "invited" | "active" | "blocked";
@@ -131,9 +132,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       const { error: passwordError } = await supabase.auth.updateUser({ password });
       if (passwordError) throw passwordError;
       if (user?.status === "invited") {
-        const { data, error: functionError } = await supabase.functions.invoke("manage-users", { body: { action: "activate" } });
-        if (functionError) throw functionError;
-        if (data?.error) throw new Error(String(data.error));
+        await callManageUsers("activate");
       }
       setPassword(""); setPasswordConfirm(""); setRecovering(false); setReload(n => n + 1);
       window.history.replaceState({}, document.title, window.location.pathname);

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:manage-users": "node --test tests/manage-users.test.mjs",
     "preview": "vite preview",
     "format": "oxfmt"
   },

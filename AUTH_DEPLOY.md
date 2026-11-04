@@ -1,7 +1,80 @@
 # Envio de Brindes — autenticação por convite (revisão)
 
-> Atenção: este código é uma proposta em PR de revisão, não uma implantação pronta.
-> O repositório de setembro precisa ser sincronizado com a versão atual do site antes do deploy.
+## Correção de CORS — 04/11/2026
+
+Alvo: Vercel `env-brindes-hercules`, Supabase `cddxvgegzzyafxgcpklt`,
+branch `fix/vercel-build-configuration`, PR #1. Login e painel funcionando no Preview
+foram informados pelo responsável. O teste HTTP da função publicada confirmou:
+
+- `OPTIONS /functions/v1/manage-users` com a origem
+  `https://env-brindes-hercules-qz1mh0ytu-felipesievert864-7979s-projects.vercel.app`
+  retorna **403**, `{"error":"Origem não autorizada."}`, sem `Access-Control-Allow-Origin`.
+- Isso bloqueia a requisição no navegador antes de listar os usuários.
+- A conexão Supabase desta sessão só disponibiliza `vedlanyojdlkhsfhkiye`, outro projeto.
+  Não implantar nele. A conexão Vercel também negou acesso ao deployment protegido.
+- Esta correção não executa SQL, migrations, alterações de políticas ou envios reais de convites.
+  A implantação e a homologação autenticada continuam pendentes de acesso aos alvos corretos.
+
+### Implantação isolada antes da produção
+
+1. No Supabase **`cddxvgegzzyafxgcpklt`**, preserve `APP_URL`, credenciais, configurações
+   de e-mail, Redirect URLs e todos os valores já presentes em `ALLOWED_ORIGINS`.
+   Acrescente a **origem exata** do Preview que será testado, separada por vírgula.
+   Use a URL do deployment correspondente ao commit da correção; cada novo deployment
+   pode ter outra origem. Não copie um link de compartilhamento com parâmetros.
+   Não use `*`, `*.vercel.app`, caminhos ou URLs de outros projetos.
+2. Publique primeiro a função **`manage-users-preview`** com validação de JWT ativada.
+   Inclua `supabase/functions/manage-users-preview/index.ts`,
+   `supabase/functions/manage-users/index.ts` e `supabase/functions/manage-users/cors.ts`,
+   preservando os caminhos relativos. Isso cria um endpoint separado; não substitui
+   `manage-users`. O preflight dispensa sessão, mas POST valida token, perfil e status.
+3. No Vercel, configure **apenas Preview**, para esta branch,
+   `VITE_MANAGE_USERS_FUNCTION=manage-users-preview` e gere um novo Preview.
+   Produção mantém a variável ausente, usando `manage-users` como antes.
+   Adicione a origem final desse novo Preview a `ALLOWED_ORIGINS` se necessário.
+4. Execute os testes locais com Node 24+ e as dependências do lockfile:
+   ```sh
+   npm run test:manage-users
+   npm run build
+   node scripts/check-manage-users-cors.mjs https://ORIGEM-EXATA-DO-PREVIEW.vercel.app manage-users-preview
+   ```
+   O teste HTTP verifica OPTIONS e rejeição sem sessão, sem gravar dados.
+   Os testes locais usam HTTP simulado e não enviam e-mails nem consultam o banco real.
+5. No navegador, entre no Preview com uma conta administradora existente e abra
+   **Gerenciar usuários**. Confirme OPTIONS 204, POST `list` 200 e a tabela preenchida.
+   Confira que um operador continua impedido de administrar. Revise o fluxo de
+   convite/ativação com os testes locais; um envio real requer um destinatário de teste
+   expressamente autorizado. Não altere perfis, senhas ou status das contas existentes
+   para realizar a homologação.
+6. Só depois dessa homologação publique os mesmos arquivos em **`manage-users`**,
+   preservando a validação JWT e as origens de produção, e repita o teste HTTP com a
+   origem de produção. A publicação do frontend em produção é uma etapa separada.
+   Não mescle o PR nem promova o Preview durante a investigação.
+
+### O que a correção cobre
+
+- Origens explícitas normalizadas, incluindo `APP_URL`; origens desconhecidas continuam negadas.
+- Cabeçalhos de CORS do SDK fixado em `2.115.0`, incluindo retry e tracing; somente POST/OPTIONS.
+- Preflight antes da inicialização do cliente privilegiado; erros previstos e inesperados
+  incluem CORS para origens autorizadas, sem cache de respostas administrativas.
+- Um único cliente de chamadas para listagem, convites e ativação, com erros legíveis
+  e seleção de função isolada no Preview. Não há repetição automática de ações.
+- Autorização por `app_users`, convite por e-mail e ativação do próprio convidado preservados.
+
+### Validação registrada
+
+- Testes locais: **13/13 passaram**, com backend simulado.
+- `npm run build`: passou.
+- Teste HTTP na função atual: reproduziu o 403 de origem, confirmando o bloqueio publicado.
+- TypeScript: os mesmos 7 erros já existentes no commit-base `dabb290`, em
+  `AuthGate.tsx` (PromiseLike/finally) e `Configuracoes.tsx` (tipos de configuração).
+  Nenhum novo erro foi introduzido por esta correção; a checagem global ainda não passa.
+- Pendente: publicar a candidata e validar uma listagem autenticada no Preview.
+
+## Configuração inicial (referência histórica)
+
+Os passos abaixo são para a instalação inicial. Não os reexecute sobre o banco existente
+para resolver CORS. Preserve os dados, as políticas e os convites já configurados.
 
 ## Regras aprovadas
 - Sem cadastro público. Somente o administrador convida pelo e-mail.

@@ -10,28 +10,35 @@ foram informados pelo responsável. O teste HTTP da função publicada confirmou
   `https://env-brindes-hercules-qz1mh0ytu-felipesievert864-7979s-projects.vercel.app`
   retorna **403**, `{"error":"Origem não autorizada."}`, sem `Access-Control-Allow-Origin`.
 - Isso bloqueia a requisição no navegador antes de listar os usuários.
-- A conexão Supabase desta sessão só disponibiliza `vedlanyojdlkhsfhkiye`, outro projeto.
-  Não implantar nele. A conexão Vercel também negou acesso ao deployment protegido.
+- Os acessos ao Supabase Hércules e ao Vercel foram restabelecidos.
+- A candidata `manage-users-preview` foi publicada separadamente. A variável
+  `VITE_MANAGE_USERS_FUNCTION=manage-users-preview` foi configurada somente para Preview
+  da branch `fix/vercel-build-configuration`.
 - Esta correção não executa SQL, migrations, alterações de políticas ou envios reais de convites.
-  A implantação e a homologação autenticada continuam pendentes de acesso aos alvos corretos.
+  A homologação autenticada deve ocorrer antes de substituir a função `manage-users`.
 
 ### Implantação isolada antes da produção
 
 1. No Supabase **`cddxvgegzzyafxgcpklt`**, preserve `APP_URL`, credenciais, configurações
    de e-mail, Redirect URLs e todos os valores já presentes em `ALLOWED_ORIGINS`.
-   Acrescente a **origem exata** do Preview que será testado, separada por vírgula.
-   Use a URL do deployment correspondente ao commit da correção; cada novo deployment
-   pode ter outra origem. Não copie um link de compartilhamento com parâmetros.
-   Não use `*`, `*.vercel.app`, caminhos ou URLs de outros projetos.
-2. Publique primeiro a função **`manage-users-preview`** com validação de JWT ativada.
+   As origens exatas dos Previews confiáveis estão em `preview-origins.ts`, incluindo o
+   alias estável da branch usado para testar novos builds:
+   `https://env-brindes-hercules-git-7201d7-felipesievert864-7979s-projects.vercel.app`.
+   Esse arquivo contém somente URLs públicas confirmadas no Vercel e na sessão do
+   responsável; não modifica nem substitui os segredos existentes. Novos links únicos
+   precisam ser incluídos explicitamente ou em `ALLOWED_ORIGINS`. Não use `*` ou `*.vercel.app`.
+2. Publique primeiro a função **`manage-users-preview`**, preservando `verify_jwt=false`
+   da função já publicada. A validação de JWT continua obrigatória dentro do handler,
+   por `admin.auth.getUser(token)`, seguida da autorização em `app_users`.
    Inclua `supabase/functions/manage-users-preview/index.ts`,
-   `supabase/functions/manage-users/index.ts` e `supabase/functions/manage-users/cors.ts`,
+   `supabase/functions/manage-users/index.ts`, `supabase/functions/manage-users/cors.ts`
+   e `supabase/functions/manage-users/preview-origins.ts`,
    preservando os caminhos relativos. Isso cria um endpoint separado; não substitui
    `manage-users`. O preflight dispensa sessão, mas POST valida token, perfil e status.
 3. No Vercel, configure **apenas Preview**, para esta branch,
    `VITE_MANAGE_USERS_FUNCTION=manage-users-preview` e gere um novo Preview.
    Produção mantém a variável ausente, usando `manage-users` como antes.
-   Adicione a origem final desse novo Preview a `ALLOWED_ORIGINS` se necessário.
+   Use o alias estável já autorizado para abrir o novo build.
 4. Execute os testes locais com Node 24+ e as dependências do lockfile:
    ```sh
    npm run test:manage-users
@@ -47,13 +54,14 @@ foram informados pelo responsável. O teste HTTP da função publicada confirmou
    expressamente autorizado. Não altere perfis, senhas ou status das contas existentes
    para realizar a homologação.
 6. Só depois dessa homologação publique os mesmos arquivos em **`manage-users`**,
-   preservando a validação JWT e as origens de produção, e repita o teste HTTP com a
+   preservando a autenticação do handler, o valor atual de `verify_jwt` e as origens de produção, e repita o teste HTTP com a
    origem de produção. A publicação do frontend em produção é uma etapa separada.
    Não mescle o PR nem promova o Preview durante a investigação.
 
 ### O que a correção cobre
 
-- Origens explícitas normalizadas, incluindo `APP_URL`; origens desconhecidas continuam negadas.
+- Origens explícitas normalizadas, incluindo `APP_URL` e os aliases exatos de `preview-origins.ts`;
+  origens desconhecidas continuam negadas. `ALLOWED_ORIGINS` e `APP_URL` existentes são preservados.
 - Cabeçalhos de CORS do SDK fixado em `2.115.0`, incluindo retry e tracing; somente POST/OPTIONS.
 - Preflight antes da inicialização do cliente privilegiado; erros previstos e inesperados
   incluem CORS para origens autorizadas, sem cache de respostas administrativas.
@@ -63,13 +71,14 @@ foram informados pelo responsável. O teste HTTP da função publicada confirmou
 
 ### Validação registrada
 
-- Testes locais: **13/13 passaram**, com backend simulado.
+- Testes locais: **14/14 passaram**, com backend simulado.
 - `npm run build`: passou.
 - Teste HTTP na função atual: reproduziu o 403 de origem, confirmando o bloqueio publicado.
 - TypeScript: os mesmos 7 erros já existentes no commit-base `dabb290`, em
   `AuthGate.tsx` (PromiseLike/finally) e `Configuracoes.tsx` (tipos de configuração).
   Nenhum novo erro foi introduzido por esta correção; a checagem global ainda não passa.
-- Pendente: publicar a candidata e validar uma listagem autenticada no Preview.
+- Candidata publicada: `manage-users-preview`, versão 1; sem substituir `manage-users` v4.
+- Pendente: validar uma listagem autenticada no Preview antes de substituir `manage-users`.
 
 ## Configuração inicial (referência histórica)
 

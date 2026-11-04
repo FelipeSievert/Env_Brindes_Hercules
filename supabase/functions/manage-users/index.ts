@@ -4,11 +4,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2.115.0/cors";
 import { createCorsPolicy } from "./cors.ts";
+import { previewOrigins } from "./preview-origins.ts";
 
 const projectUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const appUrl = (Deno.env.get("APP_URL") ?? "").trim().replace(/\/$/, "");
-const cors = createCorsPolicy(Deno.env.get("ALLOWED_ORIGINS") ?? "", appUrl, corsHeaders);
+const cors = createCorsPolicy([Deno.env.get("ALLOWED_ORIGINS") ?? "", ...previewOrigins].join(","), appUrl, corsHeaders);
 // Initialize only after preflight/config validation. An invalid configuration
 // must return a readable CORS response instead of crashing on a cold start.
 let admin: ReturnType<typeof createClient> | undefined;

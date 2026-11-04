@@ -104,6 +104,20 @@ test("foreign Preview preflight is denied without CORS or backend calls", async 
   assert.equal(requests.length, 0);
 });
 
+test("known project Preview aliases work without replacing existing origin configuration", async () => {
+  for (const origin of [
+    "https://env-brindes-hercules-git-7201d7-felipesievert864-7979s-projects.vercel.app",
+    "https://env-brindes-hercules-mryrruru8-felipesievert864-7979s-projects.vercel.app",
+    appUrl,
+    "https://other.example.com",
+  ]) {
+    const response = await handler(request({ method: "OPTIONS", origin, token: "" }));
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+  }
+  assert.equal(requests.length, 0);
+});
+
 test("missing session remains unauthorized with a readable CORS response", async () => {
   const response = await handler(request({ token: "" }));
   assert.equal(response.status, 401);

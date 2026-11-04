@@ -17,6 +17,7 @@ interface SidebarProps {
 
 const navItems: { label: string; page: Page; icon: React.ReactNode }[] = [
   { label: "Dashboard",          page: "dashboard",       icon: <LayoutDashboard size={18} /> },
+  { label: "Responsáveis", page: "responsaveis", icon: <Users size={18} /> },
   { label: "Destinatários",      page: "destinatarios",   icon: <Users size={18} /> },
   { label: "Brindes e Estoque",  page: "brindes",         icon: <Gift size={18} /> },
   { label: "Nova Declaração",    page: "nova-declaracao", icon: <FilePlus size={18} /> },

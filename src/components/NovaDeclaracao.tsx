@@ -4,6 +4,7 @@ import { Destinatario, Brinde, Declaracao, ItemDeclaracao, Configuracoes } from 
 import * as db from "../lib/db";
 
 interface Props {
+  responsaveis: import("../types").Responsavel[];
   destinatarios: Destinatario[];
   brindes: Brinde[];
   config: Configuracoes;
@@ -18,7 +19,7 @@ function todayFormatted(): string {
   return `${d}/${m}/${y}`;
 }
 
-export default function NovaDeclaracao({ destinatarios, brindes, config, onGenerate }: Props) {
+export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, config, onGenerate }: Props) {
   const [step, setStep] = useState(1);
   const [destSearch, setDestSearch] = useState("");
   const [destCategoria, setDestCategoria] = useState("");
@@ -29,6 +30,7 @@ export default function NovaDeclaracao({ destinatarios, brindes, config, onGener
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [responsavel, setResponsavel] = useState("");
+  const [mensagemRastreio,setMensagemRastreio]=useState("");
   const local = config.remetente.cidade;
 
   const allCategorias = Array.from(
@@ -99,7 +101,8 @@ export default function NovaDeclaracao({ destinatarios, brindes, config, onGener
         data: date,
         local,
         status: "gerado",
-        responsavel: responsavel.trim() || undefined,
+        responsavelId: responsavel || undefined,
+        mensagemRastreio,
         totalItens,
         pesoTotal,
       }));
@@ -414,13 +417,12 @@ export default function NovaDeclaracao({ destinatarios, brindes, config, onGener
               <label className="text-[10px] font-['Inter'] font-600 uppercase tracking-[0.08em] text-[#64748B]">
                 Responsável pela solicitação
               </label>
-              <input
-                type="text"
-                value={responsavel}
-                onChange={(e) => setResponsavel(e.target.value)}
-                placeholder="Nome de quem solicitou"
-                className="w-full border border-[#DDE3EC] rounded px-3 py-2 text-sm font-['Inter'] text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#1A3A6B]/30"
-              />
+              <select aria-label="Responsável pela solicitação" value={responsavel} onChange={e=>setResponsavel(e.target.value)} className="w-full border rounded px-3 py-2">
+                <option value="">Sem responsável / sem aviso por e-mail</option>
+                {responsaveis.map(r=><option key={r.id} value={r.id}>{r.nome} — {r.email}</option>)}
+              </select>
+              <p className="text-xs text-slate-500">Cadastre nomes e e-mails no menu Responsáveis.</p>
+              {responsavel && <label className="block pt-3 text-sm">Mensagem para acompanhar o rastreio<textarea value={mensagemRastreio} onChange={e=>setMensagemRastreio(e.target.value)} maxLength={3000} rows={4} placeholder="Escreva sua mensagem. O código de rastreio será incluído automaticamente." className="block w-full border rounded p-3" /></label>}
             </div>
 
             {stockWarnings.length > 0 && (

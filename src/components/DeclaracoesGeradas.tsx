@@ -45,6 +45,8 @@ export default function DeclaracoesGeradas({
   // Inline rastreio edit state
   const [editingRastreio, setEditingRastreio] = useState<string | null>(null);
   const [rastreioInput, setRastreioInput]     = useState("");
+  const [mensagem,setMensagem]=useState("");
+  const [emailFeedback,setEmailFeedback]=useState("");
   const [savingRastreio, setSavingRastreio]   = useState(false);
 
   async function confirmDelete() {
@@ -55,6 +57,7 @@ export default function DeclaracoesGeradas({
   }
 
   function openRastreioEdit(dec: Declaracao) {
+    setMensagem(dec.mensagemRastreio ?? "");
     setEditingRastreio(dec.id);
     setRastreioInput(dec.codigoRastreio ?? "");
   }
@@ -62,10 +65,11 @@ export default function DeclaracoesGeradas({
   async function saveRastreio(dec: Declaracao) {
     setSavingRastreio(true);
     try {
-      await db.updateCodigoRastreio(dec.id, rastreioInput.trim());
+      const feedback=await db.updateCodigoRastreio(dec.id, rastreioInput.trim(), mensagem);
+      setEmailFeedback(feedback);
       onUpdateRastreio(dec.id, rastreioInput.trim());
       setEditingRastreio(null);
-    } finally {
+    } catch(e) { setEmailFeedback(e instanceof Error?e.message:"Falha ao salvar rastreio."); } finally {
       setSavingRastreio(false);
     }
   }
@@ -101,6 +105,7 @@ export default function DeclaracoesGeradas({
         )}
       </div>
 
+      {emailFeedback&&<p role="status" className="bg-blue-50 border p-3 rounded">{emailFeedback}</p>}
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[220px]">
@@ -191,7 +196,8 @@ export default function DeclaracoesGeradas({
                   </td>
                   <td className="px-4 py-3.5 min-w-[180px]">
                     {isEditingThis ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {dec.responsavelEmail && <label className="w-full text-xs">Mensagem para {dec.responsavelEmail}<textarea aria-label="Mensagem do e-mail" value={mensagem} onChange={e=>setMensagem(e.target.value)} maxLength={3000} className="block border rounded p-2 w-full" /></label>}
                         <input
                           autoFocus
                           value={rastreioInput}

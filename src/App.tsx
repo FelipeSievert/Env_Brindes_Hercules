@@ -3,6 +3,7 @@ import { Page, Destinatario, Brinde, Declaracao, Configuracoes, Notificacao } fr
 import { defaultConfig } from "./data/mockData";
 import * as db from "./lib/db";
 import Sidebar from "./components/Sidebar";
+import Responsaveis from "./components/Responsaveis";
 import Dashboard from "./components/Dashboard";
 import Destinatarios from "./components/Destinatarios";
 import BrindesEstoque from "./components/BrindesEstoque";
@@ -16,6 +17,7 @@ import { useAuth } from "./auth/AuthGate";
 
 export default function App() {
   const { user, signOut } = useAuth();
+  const [responsaveis, setResponsaveis] = useState<import("./types").Responsavel[]>([]);
   const [page, setPage]                 = useState<Page>("dashboard");
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [brindes, setBrindes]           = useState<Brinde[]>([]);
@@ -30,13 +32,15 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [dest, br, decs, cfg, notifs] = await Promise.all([
+      const [dest, br, decs, cfg, notifs, resp] = await Promise.all([
         db.fetchDestinatarios(),
         db.fetchBrindes(),
         db.fetchDeclaracoes(),
         db.fetchConfig(),
         db.fetchNotificacoes(),
+        db.fetchResponsaveis(),
       ]);
+      setResponsaveis(resp);
       setDestinatarios(dest);
       setBrindes(br);
       setDeclaracoes(decs);
@@ -108,7 +112,7 @@ export default function App() {
 
   function handleUpdateRastreio(id: string, codigo: string) {
     setDeclaracoes((prev) =>
-      prev.map((d) => d.id === id ? { ...d, codigoRastreio: codigo } : d)
+      prev.map((d) => d.id === id ? { ...d, codigoRastreio: codigo, status: "informado" } : d)
     );
     // Se o rastreio foi informado, remove notificações relacionadas localmente
     if (codigo) {
@@ -182,6 +186,7 @@ export default function App() {
             onNavigate={handleNavigate}
           />
         )}
+        {page === "responsaveis" && <Responsaveis rows={responsaveis} onSaved={async()=>setResponsaveis(await db.fetchResponsaveis())} />}
         {page === "destinatarios" && (
           <Destinatarios
             destinatarios={destinatarios}
@@ -222,7 +227,7 @@ export default function App() {
           />
         )}
         {page === "nova-declaracao" && (
-          <NovaDeclaracao
+          <NovaDeclaracao responsaveis={responsaveis}
             destinatarios={destinatarios}
             brindes={brindes}
             config={config}

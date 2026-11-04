@@ -1,4 +1,5 @@
 export type Page =
+  | "responsaveis"
   | "dashboard"
   | "destinatarios"
   | "brindes"
@@ -44,6 +45,8 @@ export type StatusDeclaracao = "gerado" | "informado" | "devolvido" | "cancelado
 
 export type StatusRastreio = "informado" | "aguardando" | "pendente";
 
+export interface Responsavel { id: string; nome: string; email: string; }
+
 export interface Declaracao {
   id: string;
   numero: string;
@@ -55,6 +58,9 @@ export interface Declaracao {
   totalItens: number;
   pesoTotal: number;
   responsavel?: string;
+  responsavelId?: string;
+  responsavelEmail?: string;
+  mensagemRastreio?: string;
   codigoRastreio?: string;
   lembreteRastreioEnviado?: boolean;
   dataLembreteRastreio?: string;

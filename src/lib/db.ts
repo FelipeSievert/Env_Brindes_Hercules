@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { Destinatario, Brinde, Declaracao, Configuracoes, Notificacao } from "../types";
+import { Destinatario, Brinde, Declaracao, Configuracoes, Notificacao, Responsavel } from "../types";
 import { toDbDestinatario, mapDestinatario, declarationRecipient } from "./recipient";
 import { normalizeDeclarationStatus } from "./declarationStatus";
 
@@ -201,6 +201,8 @@ export async function insertDeclaracoes(decs: Omit<Declaracao, "id">[]): Promise
     local: dec.local,
     status: normalizeDeclarationStatus(dec.status),
     responsavel: dec.responsavel ?? "",
+    responsavel_id: dec.responsavelId,
+    mensagem_rastreio: dec.mensagemRastreio ?? "",
     itens: dec.itens.map(item => ({ brinde_id: item.brindeId, quantidade: item.quantidade })),
   }));
   // Never retry a mutation whose result may have been committed before a lost response.
@@ -235,14 +237,28 @@ export async function updateDeclaracaoStatus(id: string, status: string): Promis
   });
 }
 
-export async function updateCodigoRastreio(id: string, codigo: string): Promise<void> {
-  return withRetry(async () => {
-    const { error } = await supabase
-      .from("declaracoes")
-      .update({ codigo_rastreio: codigo })
-      .eq("id", id);
-    if (error) throw new Error(error.message);
-  });
+export async function updateCodigoRastreio(id: string, codigo: string, mensagem = ""): Promise<string> {
+  const {data,error}=await supabase.rpc("save_tracking_notification",{p_id:id,p_codigo:codigo,p_mensagem:mensagem});
+  if(error) throw new Error(error.message);
+  if(!data.email_id) return "Rastreio salvo. Esta declaração não possui e-mail de responsável.";
+  return sendTrackingEmail(data.email_id);
+}
+export async function sendTrackingEmail(id: string): Promise<string> {
+  const {data,error}=await supabase.functions.invoke("send-tracking-email",{body:{id}});
+  if(error || data?.error) return "Rastreio salvo. E-mail pendente: "+(data?.error || "não foi possível confirmar o envio. Consulte o histórico de e-mails.");
+  return data.status === "enviado" ? "Rastreio salvo e e-mail enviado ao responsável." : "Rastreio salvo. Situação do e-mail: "+data.status;
+}
+export async function fetchResponsaveis(): Promise<Responsavel[]> {
+ const {data,error}=await supabase.from("responsaveis_solicitacao").select("id,nome,email").order("nome");
+ if(error) throw new Error(error.message); return data??[];
+}
+export async function saveResponsavel(row: {id?:string;nome:string;email:string}): Promise<void> {
+ const result=row.id?await supabase.from("responsaveis_solicitacao").update({nome:row.nome,email:row.email}).eq("id",row.id):await supabase.from("responsaveis_solicitacao").insert({nome:row.nome,email:row.email});
+ if(result.error) throw new Error(result.error.code==="23505"?"Este e-mail já está cadastrado.":result.error.message);
+}
+export async function fetchTrackingEmails() {
+ const {data,error}=await supabase.from("rastreio_emails").select("id,email,codigo,status,erro,declaracao_id").order("created_at",{ascending:false}).limit(100);
+ if(error) throw new Error(error.message);return data??[];
 }
 
 function mapDeclaracao(row: Record<string, unknown>): Declaracao {
@@ -275,6 +291,9 @@ function mapDeclaracao(row: Record<string, unknown>): Declaracao {
     totalItens: Number(row.total_itens ?? 0),
     pesoTotal: Number(row.peso_total ?? 0),
     responsavel: row.responsavel ? String(row.responsavel) : undefined,
+    responsavelId: row.responsavel_id ? String(row.responsavel_id) : undefined,
+    responsavelEmail: String(row.responsavel_email ?? ""),
+    mensagemRastreio: String(row.mensagem_rastreio ?? ""),
     codigoRastreio: String(row.codigo_rastreio ?? ""),
     lembreteRastreioEnviado: Boolean(row.lembrete_rastreio_enviado),
     dataLembreteRastreio: row.data_lembrete_rastreio ? String(row.data_lembrete_rastreio) : undefined,

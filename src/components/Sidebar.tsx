@@ -1,12 +1,13 @@
 import {
   LayoutDashboard, Users, Gift, FilePlus, FileText,
-  Settings, Zap, FileUp,
+  Settings, Zap, FileUp, LogOut,
 } from "lucide-react";
 import { Page, Notificacao } from "../types";
 import NotificacoesPanel from "./NotificacoesPanel";
 
 interface SidebarProps {
   currentPage: Page;
+  onSignOut: () => void;
   onNavigate: (page: Page) => void;
   notificacoes: Notificacao[];
   onUpdateNotificacoes: (updated: Notificacao[]) => void;
@@ -24,7 +25,7 @@ const navItems: { label: string; page: Page; icon: React.ReactNode }[] = [
 ];
 
 export default function Sidebar({
-  currentPage, onNavigate, notificacoes, onUpdateNotificacoes, onNavigateToDeclaracao,
+  currentPage, onNavigate, notificacoes, onUpdateNotificacoes, onNavigateToDeclaracao, onSignOut,
 }: SidebarProps) {
   return (
     <aside className="w-60 min-h-screen bg-[#1A3A6B] flex flex-col shrink-0">
@@ -73,6 +74,7 @@ export default function Sidebar({
       </nav>
 
       <div className="px-6 py-4 border-t border-white/10">
+        <button type="button" onClick={onSignOut} className="flex items-center gap-2 text-white/80 hover:text-white text-sm mb-3"><LogOut size={16} /> Sair da conta</button>
         <p className="text-white/30 text-[10px] font-['Inter']">Sistema de Declaração v1.0</p>
       </div>
     </aside>

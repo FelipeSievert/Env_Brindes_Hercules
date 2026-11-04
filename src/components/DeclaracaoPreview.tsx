@@ -272,6 +272,7 @@ function DeclaracaoA4({
               <PartyBox
                 title="D E S T I N A T Á R I O"
                 nome={d.nome.toUpperCase()}
+                aosCuidados={d.aosCuidados}
                 endereco={`${d.endereco}, ${d.numero}${d.complemento ? ` – ${d.complemento}` : ""}`.toUpperCase()}
                 cidade={d.cidade.toUpperCase()}
                 uf={d.uf.toUpperCase()}
@@ -500,6 +501,7 @@ function PartyBox({
   doc,
   docLabel = "CPF/CNPJ",
   docFontSize,
+  aosCuidados,
 }: {
   title: string;
   nome: string;
@@ -510,6 +512,7 @@ function PartyBox({
   doc: string;
   docLabel?: string;
   docFontSize?: string;
+  aosCuidados?: string;
 }) {
   const cell: React.CSSProperties = {
     border: "1px solid #000",
@@ -547,6 +550,13 @@ function PartyBox({
             <b>NOME:</b> {nome}
           </td>
         </tr>
+        {aosCuidados?.trim() && (
+          <tr>
+            <td colSpan={2} style={{ ...cell, overflowWrap: "anywhere" }}>
+              <b>A/C:</b> {aosCuidados.trim().toUpperCase()}
+            </td>
+          </tr>
+        )}
         <tr>
           <td colSpan={2} style={{ ...cell, height: "10mm" }}>
             <b>ENDEREÇO:</b> {endereco}

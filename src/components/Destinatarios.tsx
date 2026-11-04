@@ -12,6 +12,7 @@ interface Props {
 
 const emptyForm = (): Omit<Destinatario, "id"> => ({
   nome: "",
+  aosCuidados: "",
   cpfCnpj: "",
   cep: "",
   endereco: "",
@@ -259,6 +260,7 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
         const colMap: Record<string, number> = {};
         const aliases: Record<string, string[]> = {
           nome: ["nome", "name", "razao social", "razão social"],
+          aosCuidados: ["a/c", "aos cuidados de", "aos cuidados", "aos_cuidados", "ac", "acc"],
           cpfCnpj: ["cpf", "cnpj", "cpf/cnpj", "cpf_cnpj", "documento"],
           cep: ["cep"],
           endereco: ["endereco", "endereço", "address", "rua", "logradouro"],
@@ -282,7 +284,7 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
           const catRaw = get("categorias");
           const categorias = catRaw ? catRaw.split("|").map((c) => c.trim()).filter(Boolean) : [];
           return {
-            nome: get("nome"), cpfCnpj: get("cpfCnpj"), cep: get("cep"),
+            nome: get("nome"), aosCuidados: get("aosCuidados"), cpfCnpj: get("cpfCnpj"), cep: get("cep"),
             endereco: get("endereco"), numero: get("numero"), complemento: get("complemento"),
             bairro: get("bairro"), cidade: get("cidade"), uf: get("uf"), categorias,
           };
@@ -305,11 +307,13 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
     finally { setImporting(false); }
   }
 
-  const Field = ({ label, field, half }: { label: string; field: keyof Omit<Destinatario, "id" | "categorias">; half?: boolean }) => (
+  const renderField = ({ label, field, half }: { label: string; field: keyof Omit<Destinatario, "id" | "categorias">; half?: boolean }) => (
     <div className={half ? "col-span-1" : "col-span-2"}>
-      <label className="block text-[11px] font-['Inter'] font-600 uppercase tracking-[0.08em] text-[#64748B] mb-1">{label}</label>
+      <label htmlFor={`dest-${field}`} className="block text-[11px] font-['Inter'] font-600 uppercase tracking-[0.08em] text-[#64748B] mb-1">{label}</label>
       <input
-        value={form[field] as string}
+        id={`dest-${field}`}
+        maxLength={field === "aosCuidados" ? 160 : undefined}
+        value={(form[field] as string) ?? ""}
         onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
         className="w-full border border-[#DDE3EC] rounded px-3 py-2 text-sm font-['Inter'] text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#1A3A6B]/30 focus:border-[#1A3A6B]"
       />
@@ -572,15 +576,16 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
               <button onClick={() => setShowForm(false)} className="text-[#64748B] hover:text-[#1E293B]"><X size={18} /></button>
             </div>
             <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto">
-              <Field label="Nome completo / Razão Social" field="nome" />
-              <Field label="CPF ou CNPJ" field="cpfCnpj" half />
-              <Field label="CEP" field="cep" half />
-              <Field label="Endereço" field="endereco" />
-              <Field label="Número" field="numero" half />
-              <Field label="Complemento" field="complemento" half />
-              <Field label="Bairro" field="bairro" />
-              <Field label="Cidade" field="cidade" half />
-              <Field label="Estado (UF)" field="uf" half />
+              {renderField({ label: "Nome completo / Razão Social", field: "nome" })}
+              {renderField({ label: "A/C — Aos cuidados de (opcional)", field: "aosCuidados" })}
+              {renderField({ label: "CPF ou CNPJ", field: "cpfCnpj", half: true })}
+              {renderField({ label: "CEP", field: "cep", half: true })}
+              {renderField({ label: "Endereço", field: "endereco" })}
+              {renderField({ label: "Número", field: "numero", half: true })}
+              {renderField({ label: "Complemento", field: "complemento", half: true })}
+              {renderField({ label: "Bairro", field: "bairro" })}
+              {renderField({ label: "Cidade", field: "cidade", half: true })}
+              {renderField({ label: "Estado (UF)", field: "uf", half: true })}
 
               <div className="col-span-2">
                 <label className="block text-[11px] font-['Inter'] font-600 uppercase tracking-[0.08em] text-[#64748B] mb-1">Categorias</label>
@@ -703,6 +708,7 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
             <div className="p-6 space-y-3">
               {[
                 ["Nome", viewing.nome],
+                ...(viewing.aosCuidados?.trim() ? [["A/C", viewing.aosCuidados]] : []),
                 ["CPF/CNPJ", viewing.cpfCnpj],
                 ["Endereço", `${viewing.endereco}, ${viewing.numero}${viewing.complemento ? ` – ${viewing.complemento}` : ""}`],
                 ["Bairro", viewing.bairro],

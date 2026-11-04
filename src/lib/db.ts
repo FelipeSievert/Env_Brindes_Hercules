@@ -1,5 +1,7 @@
 import { supabase } from "./supabase";
-import { Destinatario, Brinde, Declaracao, Configuracoes, Notificacao } from "../types";
+import { Destinatario, Brinde, Declaracao, Configuracoes, Notificacao, Responsavel } from "../types";
+import { toDbDestinatario, mapDestinatario, declarationRecipient } from "./recipient";
+import { normalizeDeclarationStatus } from "./declarationStatus";
 
 async function withRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 1500): Promise<T> {
   let lastError: unknown;
@@ -70,43 +72,6 @@ export async function upsertDestinatarios(
       : Promise.resolve(),
     ...toUpdate.map((d) => updateDestinatario(d)),
   ]);
-}
-
-function toDbDestinatario(d: Omit<Destinatario, "id"> | Destinatario) {
-  return {
-    nome: d.nome,
-    cpf_cnpj: d.cpfCnpj,
-    cep: d.cep,
-    endereco: d.endereco,
-    numero: d.numero,
-    complemento: d.complemento ?? "",
-    bairro: d.bairro,
-    cidade: d.cidade,
-    uf: d.uf,
-    categorias: d.categorias ?? [],
-  };
-}
-
-function mapDestinatario(row: Record<string, unknown>): Destinatario {
-  const raw = row.categorias;
-  const categorias: string[] = Array.isArray(raw)
-    ? raw.map(String).filter(Boolean)
-    : typeof raw === "string" && raw
-      ? raw.replace(/^\{|\}$/g, "").split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean)
-      : [];
-  return {
-    id: String(row.id),
-    nome: String(row.nome ?? ""),
-    cpfCnpj: String(row.cpf_cnpj ?? ""),
-    cep: String(row.cep ?? ""),
-    endereco: String(row.endereco ?? ""),
-    numero: String(row.numero ?? ""),
-    complemento: String(row.complemento ?? ""),
-    bairro: String(row.bairro ?? ""),
-    cidade: String(row.cidade ?? ""),
-    uf: String(row.uf ?? ""),
-    categorias,
-  };
 }
 
 // ─── BRINDES / ESTOQUE ───────────────────────────────────────────────────────
@@ -226,45 +191,29 @@ export async function fetchDeclaracoes(): Promise<Declaracao[]> {
   });
 }
 
+/** Save the whole batch in one database transaction, including stock and snapshots. */
+export async function insertDeclaracoes(decs: Omit<Declaracao, "id">[]): Promise<Declaracao[]> {
+  const payload = decs.map(dec => ({
+    numero: dec.numero,
+    destinatario_id: dec.destinatario.id,
+    aos_cuidados: (dec.destinatario.aosCuidados ?? "").trim(),
+    data: dec.data,
+    local: dec.local,
+    status: normalizeDeclarationStatus(dec.status),
+    responsavel: dec.responsavel ?? "",
+    responsavel_id: dec.responsavelId,
+    mensagem_rastreio: dec.mensagemRastreio ?? "",
+    itens: dec.itens.map(item => ({ brinde_id: item.brindeId, quantidade: item.quantidade })),
+  }));
+  // Never retry a mutation whose result may have been committed before a lost response.
+  const { data, error } = await supabase.rpc("create_declaracoes", { p_declaracoes: payload });
+  if (error) throw new Error(error.message);
+  return (data as Record<string, unknown>[]).map(mapDeclaracao);
+}
+
 export async function insertDeclaracao(dec: Omit<Declaracao, "id">): Promise<Declaracao> {
-  return withRetry(async () => {
-    const { data: decData, error: decError } = await supabase
-      .from("declaracoes")
-      .insert({
-        numero: dec.numero,
-        destinatario_id: dec.destinatario.id,
-        data: dec.data,
-        local: dec.local,
-        status: dec.status,
-        total_itens: dec.totalItens,
-        peso_total: dec.pesoTotal,
-        responsavel: dec.responsavel ?? "",
-        codigo_rastreio: dec.codigoRastreio ?? "",
-      })
-      .select()
-      .single();
-    if (decError) throw new Error(decError.message);
-
-    const itens = dec.itens.map((item) => ({
-      declaracao_id: decData.id,
-      brinde_id: item.brindeId,
-      quantidade: item.quantidade,
-      peso_total: item.pesoTotal,
-    }));
-
-    const { error: itensError } = await supabase.from("declaracao_itens").insert(itens);
-    if (itensError) throw new Error(itensError.message);
-
-    for (const item of dec.itens) {
-      const { error: stockError } = await supabase.rpc("decrease_stock", {
-        p_brinde_id: item.brindeId,
-        p_quantidade: item.quantidade,
-      });
-      if (stockError) throw new Error(stockError.message);
-    }
-
-    return { ...dec, id: String(decData.id), createdAt: String(decData.created_at ?? "") };
-  });
+  const [saved] = await insertDeclaracoes([dec]);
+  return saved;
 }
 
 export async function deleteDeclaracao(dec: Declaracao): Promise<void> {
@@ -283,31 +232,39 @@ export async function deleteDeclaracao(dec: Declaracao): Promise<void> {
 
 export async function updateDeclaracaoStatus(id: string, status: string): Promise<void> {
   return withRetry(async () => {
-    const { error } = await supabase.from("declaracoes").update({ status }).eq("id", id);
+    const { error } = await supabase.from("declaracoes").update({ status: normalizeDeclarationStatus(status) }).eq("id", id);
     if (error) throw new Error(error.message);
   });
 }
 
-export async function updateCodigoRastreio(id: string, codigo: string): Promise<void> {
-  return withRetry(async () => {
-    const { error } = await supabase
-      .from("declaracoes")
-      .update({ codigo_rastreio: codigo })
-      .eq("id", id);
-    if (error) throw new Error(error.message);
-  });
+export async function updateCodigoRastreio(id: string, codigo: string, mensagem = ""): Promise<string> {
+  const {data,error}=await supabase.rpc("save_tracking_notification",{p_id:id,p_codigo:codigo,p_mensagem:mensagem});
+  if(error) throw new Error(error.message);
+  if(!data.email_id) return "Rastreio salvo. Esta declaração não possui e-mail de responsável.";
+  return sendTrackingEmail(data.email_id);
+}
+export async function sendTrackingEmail(id: string): Promise<string> {
+  const {data,error}=await supabase.functions.invoke("send-tracking-email",{body:{id}});
+  if(error || data?.error) return "Rastreio salvo. E-mail pendente: "+(data?.error || "não foi possível confirmar o envio. Consulte o histórico de e-mails.");
+  return data.status === "enviado" ? "Rastreio salvo e e-mail enviado ao responsável." : "Rastreio salvo. Situação do e-mail: "+data.status;
+}
+export async function fetchResponsaveis(): Promise<Responsavel[]> {
+ const {data,error}=await supabase.from("responsaveis_solicitacao").select("id,nome,email").order("nome");
+ if(error) throw new Error(error.message); return data??[];
+}
+export async function saveResponsavel(row: {id?:string;nome:string;email:string}): Promise<void> {
+ const result=row.id?await supabase.from("responsaveis_solicitacao").update({nome:row.nome,email:row.email}).eq("id",row.id):await supabase.from("responsaveis_solicitacao").insert({nome:row.nome,email:row.email});
+ if(result.error) throw new Error(result.error.code==="23505"?"Este e-mail já está cadastrado.":result.error.message);
+}
+export async function fetchTrackingEmails() {
+ const {data,error}=await supabase.from("rastreio_emails").select("id,email,codigo,status,erro,declaracao_id").order("created_at",{ascending:false}).limit(100);
+ if(error) throw new Error(error.message);return data??[];
 }
 
 function mapDeclaracao(row: Record<string, unknown>): Declaracao {
-  const dest = row.destinatario as Record<string, unknown>;
-  const rawCat = dest?.categorias;
-  const categorias: string[] = Array.isArray(rawCat)
-    ? rawCat.map(String).filter(Boolean)
-    : [];
-
   const itens = ((row.itens as unknown[]) ?? []).map((i) => {
     const item = i as Record<string, unknown>;
-    const br = (item.brinde as Record<string, unknown>) ?? {};
+    const br = (item.brinde_snapshot as Record<string, unknown>) ?? (item.brinde as Record<string, unknown>) ?? {};
     return {
       brindeId: String(item.brinde_id),
       brinde: {
@@ -326,26 +283,17 @@ function mapDeclaracao(row: Record<string, unknown>): Declaracao {
   return {
     id: String(row.id),
     numero: String(row.numero ?? ""),
-    destinatario: {
-      id: String(dest?.id ?? ""),
-      nome: String(dest?.nome ?? ""),
-      cpfCnpj: String(dest?.cpf_cnpj ?? ""),
-      cep: String(dest?.cep ?? ""),
-      endereco: String(dest?.endereco ?? ""),
-      numero: String(dest?.numero ?? ""),
-      complemento: String(dest?.complemento ?? ""),
-      bairro: String(dest?.bairro ?? ""),
-      cidade: String(dest?.cidade ?? ""),
-      uf: String(dest?.uf ?? ""),
-      categorias,
-    },
+    destinatario: declarationRecipient(row),
     itens,
     data: String(row.data ?? ""),
     local: String(row.local ?? ""),
-    status: (row.status as Declaracao["status"]) ?? "gerada",
+    status: normalizeDeclarationStatus(row.status),
     totalItens: Number(row.total_itens ?? 0),
     pesoTotal: Number(row.peso_total ?? 0),
     responsavel: row.responsavel ? String(row.responsavel) : undefined,
+    responsavelId: row.responsavel_id ? String(row.responsavel_id) : undefined,
+    responsavelEmail: String(row.responsavel_email ?? ""),
+    mensagemRastreio: String(row.mensagem_rastreio ?? ""),
     codigoRastreio: String(row.codigo_rastreio ?? ""),
     lembreteRastreioEnviado: Boolean(row.lembrete_rastreio_enviado),
     dataLembreteRastreio: row.data_lembrete_rastreio ? String(row.data_lembrete_rastreio) : undefined,

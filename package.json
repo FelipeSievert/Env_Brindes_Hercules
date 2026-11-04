@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:manage-users": "node --test tests/manage-users.test.mjs",
     "preview": "vite preview",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "test:declarations": "node --test tests/dashboard-declarations.test.mjs",
+    "test:tracking-email": "node --test tests/tracking-email.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

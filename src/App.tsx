@@ -3,6 +3,7 @@ import { Page, Destinatario, Brinde, Declaracao, Configuracoes, Notificacao } fr
 import { defaultConfig } from "./data/mockData";
 import * as db from "./lib/db";
 import Sidebar from "./components/Sidebar";
+import Responsaveis from "./components/Responsaveis";
 import Dashboard from "./components/Dashboard";
 import Destinatarios from "./components/Destinatarios";
 import BrindesEstoque from "./components/BrindesEstoque";
@@ -11,10 +12,12 @@ import DeclaracaoPreview from "./components/DeclaracaoPreview";
 import DeclaracoesGeradas from "./components/DeclaracoesGeradas";
 import ConfiguracoesTela from "./components/Configuracoes";
 import ImportarDeclaracoesWord from "./components/ImportarDeclaracoesWord";
+import AdministrarUsuarios from "./components/AdministrarUsuarios";
 import { useAuth } from "./auth/AuthGate";
 
 export default function App() {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const [responsaveis, setResponsaveis] = useState<import("./types").Responsavel[]>([]);
   const [page, setPage]                 = useState<Page>("dashboard");
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [brindes, setBrindes]           = useState<Brinde[]>([]);
@@ -29,13 +32,15 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [dest, br, decs, cfg, notifs] = await Promise.all([
+      const [dest, br, decs, cfg, notifs, resp] = await Promise.all([
         db.fetchDestinatarios(),
         db.fetchBrindes(),
         db.fetchDeclaracoes(),
         db.fetchConfig(),
         db.fetchNotificacoes(),
+        db.fetchResponsaveis(),
       ]);
+      setResponsaveis(resp);
       setDestinatarios(dest);
       setBrindes(br);
       setDeclaracoes(decs);
@@ -75,8 +80,9 @@ export default function App() {
     setPreviewDec(dec);
     setPage("declaracao-preview");
     try {
-      const updated = await db.fetchBrindes();
+      const [updated, allDeclarations] = await Promise.all([db.fetchBrindes(), db.fetchDeclaracoes()]);
       setBrindes(updated);
+      setDeclaracoes(allDeclarations);
     } catch (_) {}
   }
 
@@ -88,8 +94,8 @@ export default function App() {
   async function handleDuplicate(dec: Declaracao) {
     const copy: Omit<Declaracao, "id"> = {
       ...dec,
-      numero: `DC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`,
-      status: "gerada",
+      numero: `DC-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+      status: "gerado",
       data: new Date().toLocaleDateString("pt-BR"),
       codigoRastreio: "",
       lembreteRastreioEnviado: false,
@@ -98,6 +104,7 @@ export default function App() {
     try {
       const saved = await db.insertDeclaracao(copy);
       setDeclaracoes((prev) => [saved, ...prev]);
+      try { setBrindes(await db.fetchBrindes()); } catch (_) {}
     } catch (e) {
       alert(e instanceof Error ? e.message : "Erro ao duplicar declaração.");
     }
@@ -105,7 +112,7 @@ export default function App() {
 
   function handleUpdateRastreio(id: string, codigo: string) {
     setDeclaracoes((prev) =>
-      prev.map((d) => d.id === id ? { ...d, codigoRastreio: codigo } : d)
+      prev.map((d) => d.id === id ? { ...d, codigoRastreio: codigo, status: "informado" } : d)
     );
     // Se o rastreio foi informado, remove notificações relacionadas localmente
     if (codigo) {
@@ -163,6 +170,7 @@ export default function App() {
     <div className="flex h-full bg-[#F1F4F8]">
       <Sidebar
         currentPage={page}
+        isAdmin={user.role === "admin"}
         onSignOut={() => { void signOut(); }}
         onNavigate={handleNavigate}
         notificacoes={notificacoes}
@@ -178,6 +186,7 @@ export default function App() {
             onNavigate={handleNavigate}
           />
         )}
+        {page === "responsaveis" && <Responsaveis rows={responsaveis} onSaved={async()=>setResponsaveis(await db.fetchResponsaveis())} />}
         {page === "destinatarios" && (
           <Destinatarios
             destinatarios={destinatarios}
@@ -218,7 +227,7 @@ export default function App() {
           />
         )}
         {page === "nova-declaracao" && (
-          <NovaDeclaracao
+          <NovaDeclaracao responsaveis={responsaveis}
             destinatarios={destinatarios}
             brindes={brindes}
             config={config}
@@ -247,6 +256,7 @@ export default function App() {
             onImported={(updated) => setDestinatarios(updated)}
           />
         )}
+        {page === "usuarios" && user.role === "admin" && <AdministrarUsuarios />}
         {page === "configuracoes" && (
           <ConfiguracoesTela
             config={config}

@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Declaracao, calcStatusRastreio, StatusRastreio } from "../types";
 import * as db from "../lib/db";
+import { declarationStatuses } from "../lib/declarationStatus";
 
 interface Props {
   declaracoes: Declaracao[];
@@ -14,11 +15,7 @@ interface Props {
   onUpdateRastreio: (id: string, codigo: string) => void;
 }
 
-const statusInfo: Record<string, { label: string; color: string }> = {
-  gerada:   { label: "Gerada",   color: "bg-blue-100 text-blue-700" },
-  impressa: { label: "Impressa", color: "bg-amber-100 text-amber-700" },
-  enviada:  { label: "Enviada",  color: "bg-green-100 text-green-700" },
-};
+const statusInfo = declarationStatuses;
 
 const rastreioConfig: Record<StatusRastreio, { label: string; dot: string; text: string }> = {
   informado:  { label: "Rastreio informado",       dot: "bg-green-500",  text: "text-green-700" },
@@ -48,6 +45,8 @@ export default function DeclaracoesGeradas({
   // Inline rastreio edit state
   const [editingRastreio, setEditingRastreio] = useState<string | null>(null);
   const [rastreioInput, setRastreioInput]     = useState("");
+  const [mensagem,setMensagem]=useState("");
+  const [emailFeedback,setEmailFeedback]=useState("");
   const [savingRastreio, setSavingRastreio]   = useState(false);
 
   async function confirmDelete() {
@@ -58,6 +57,7 @@ export default function DeclaracoesGeradas({
   }
 
   function openRastreioEdit(dec: Declaracao) {
+    setMensagem(dec.mensagemRastreio ?? "");
     setEditingRastreio(dec.id);
     setRastreioInput(dec.codigoRastreio ?? "");
   }
@@ -65,10 +65,11 @@ export default function DeclaracoesGeradas({
   async function saveRastreio(dec: Declaracao) {
     setSavingRastreio(true);
     try {
-      await db.updateCodigoRastreio(dec.id, rastreioInput.trim());
+      const feedback=await db.updateCodigoRastreio(dec.id, rastreioInput.trim(), mensagem);
+      setEmailFeedback(feedback);
       onUpdateRastreio(dec.id, rastreioInput.trim());
       setEditingRastreio(null);
-    } finally {
+    } catch(e) { setEmailFeedback(e instanceof Error?e.message:"Falha ao salvar rastreio."); } finally {
       setSavingRastreio(false);
     }
   }
@@ -76,9 +77,9 @@ export default function DeclaracoesGeradas({
   const filtered = declaracoes.filter((d) => {
     const q = search.toLowerCase();
     const matchQ =
-      d.numero.toLowerCase().includes(q) ||
-      d.destinatario.nome.toLowerCase().includes(q) ||
-      d.destinatario.cidade.toLowerCase().includes(q);
+      String(d.numero ?? "").toLowerCase().includes(q) ||
+      String(d.destinatario?.nome ?? "").toLowerCase().includes(q) ||
+      String(d.destinatario?.cidade ?? "").toLowerCase().includes(q);
     const matchStatus   = filterStatus === "todos"    || d.status === filterStatus;
     const rastreioSt    = calcStatusRastreio(d);
     const matchRastreio = filterRastreio === "todos"  || rastreioSt === filterRastreio;
@@ -104,6 +105,7 @@ export default function DeclaracoesGeradas({
         )}
       </div>
 
+      {emailFeedback&&<p role="status" className="bg-blue-50 border p-3 rounded">{emailFeedback}</p>}
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[220px]">
@@ -121,9 +123,7 @@ export default function DeclaracoesGeradas({
           className="border border-[#DDE3EC] rounded px-3 py-2.5 text-sm font-['Inter'] text-[#1E293B] bg-white focus:outline-none focus:ring-2 focus:ring-[#1A3A6B]/30"
         >
           <option value="todos">Todos os status</option>
-          <option value="gerada">Gerada</option>
-          <option value="impressa">Impressa</option>
-          <option value="enviada">Enviada</option>
+          {Object.entries(statusInfo).map(([value, info]) => <option key={value} value={value}>{info.label}</option>)}
         </select>
         <select
           value={filterRastreio}
@@ -169,10 +169,10 @@ export default function DeclaracoesGeradas({
                     {dec.numero}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-[#1E293B] font-['Inter'] font-500">
-                    {dec.destinatario.nome}
+                    {dec.destinatario?.nome ?? 'Destinatário não informado'}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-[#64748B] font-['Inter'] whitespace-nowrap">
-                    {dec.destinatario.cidade}/{dec.destinatario.uf}
+                    {dec.destinatario?.cidade ?? '—'}/{dec.destinatario?.uf ?? '—'}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-[#64748B] font-['Inter'] whitespace-nowrap">
                     {dec.data}
@@ -184,7 +184,7 @@ export default function DeclaracoesGeradas({
                     {dec.totalItens}
                   </td>
                   <td className="px-4 py-3.5 text-sm font-['JetBrains_Mono',monospace] text-[#1E293B] whitespace-nowrap">
-                    {dec.pesoTotal.toFixed(3)} kg
+                    {(Number(dec.pesoTotal) || 0).toFixed(3)} kg
                   </td>
                   <td className="px-4 py-3.5">
                     <span className={`text-[11px] font-['Inter'] font-600 px-2 py-1 rounded-full ${s.color}`}>
@@ -196,7 +196,8 @@ export default function DeclaracoesGeradas({
                   </td>
                   <td className="px-4 py-3.5 min-w-[180px]">
                     {isEditingThis ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {dec.responsavelEmail && <label className="w-full text-xs">Mensagem para {dec.responsavelEmail}<textarea aria-label="Mensagem do e-mail" value={mensagem} onChange={e=>setMensagem(e.target.value)} maxLength={3000} className="block border rounded p-2 w-full" /></label>}
                         <input
                           autoFocus
                           value={rastreioInput}
@@ -296,7 +297,7 @@ export default function DeclaracoesGeradas({
                 <p className="text-sm text-[#64748B] mt-1 font-['Inter']">
                   Tem certeza que deseja excluir a declaração{" "}
                   <span className="font-600 text-[#1E293B]">{toDelete.numero}</span> de{" "}
-                  <span className="font-600 text-[#1E293B]">{toDelete.destinatario.nome}</span>?
+                  <span className="font-600 text-[#1E293B]">{toDelete.destinatario?.nome ?? 'Destinatário não informado'}</span>?
                   Esta ação não pode ser desfeita.
                 </p>
               </div>

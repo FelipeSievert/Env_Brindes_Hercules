@@ -1,16 +1,19 @@
 export type Page =
+  | "responsaveis"
   | "dashboard"
   | "destinatarios"
   | "brindes"
   | "nova-declaracao"
   | "declaracoes"
   | "configuracoes"
+  | "usuarios"
   | "declaracao-preview"
   | "importar-word";
 
 export interface Destinatario {
   id: string;
   nome: string;
+  aosCuidados?: string;
   cpfCnpj: string;
   cep: string;
   endereco: string;
@@ -38,9 +41,11 @@ export interface ItemDeclaracao {
   pesoTotal: number;
 }
 
-export type StatusDeclaracao = "gerada" | "impressa" | "enviada";
+export type StatusDeclaracao = "gerado" | "informado" | "devolvido" | "cancelado";
 
 export type StatusRastreio = "informado" | "aguardando" | "pendente";
+
+export interface Responsavel { id: string; nome: string; email: string; }
 
 export interface Declaracao {
   id: string;
@@ -53,6 +58,9 @@ export interface Declaracao {
   totalItens: number;
   pesoTotal: number;
   responsavel?: string;
+  responsavelId?: string;
+  responsavelEmail?: string;
+  mensagemRastreio?: string;
   codigoRastreio?: string;
   lembreteRastreioEnviado?: boolean;
   dataLembreteRastreio?: string;

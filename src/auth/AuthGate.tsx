@@ -107,13 +107,15 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     let cancelled = false;
     if (!session) { setUser(null); setLoading(false); return; }
     setLoading(true);
-    supabase.from("app_users")
+    Promise.resolve(supabase.from("app_users")
       .select("id, full_name, email, role, status")
-      .eq("id", session.user.id).maybeSingle()
+      .eq("id", session.user.id).maybeSingle())
       .then(({ data, error }) => {
         if (cancelled) return;
         setUser(error ? null : data as SystemUser | null);
         setError(error ? "Não foi possível verificar as permissões de acesso." : "");
+      }).catch(() => {
+        if (!cancelled) { setUser(null); setError("Não foi possível verificar as permissões de acesso."); }
       }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [session?.user.id, reload]);

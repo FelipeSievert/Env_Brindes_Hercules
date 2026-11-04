@@ -8,8 +8,6 @@ import { previewOrigins } from "./preview-origins.ts";
 
 const projectUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-// Activation is available in the validated branch Preview until the frontend is promoted.
-const invitationUrl = (Deno.env.get("INVITE_URL") || previewOrigins[0]).replace(/\/$/, "");
 const appUrl = (Deno.env.get("APP_URL") ?? "").trim().replace(/\/$/, "");
 const cors = createCorsPolicy([Deno.env.get("ALLOWED_ORIGINS") ?? "", ...previewOrigins].join(","), appUrl, corsHeaders);
 // Initialize only after preflight/config validation. An invalid configuration
@@ -67,11 +65,11 @@ Deno.serve(async (req: Request) => {
       if (name.length < 2 || name.length > 160 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return reply({ error: "Informe nome e e-mail válidos." }, 400, origin);
       }
-      if (!appUrl || !cors.isAllowed(appUrl) || !cors.isAllowed(invitationUrl)) return reply({ error: "APP_URL ou ALLOWED_ORIGINS não configurados." }, 503, origin);
+      if (!appUrl || !cors.isAllowed(appUrl)) return reply({ error: "APP_URL ou ALLOWED_ORIGINS não configurados." }, 503, origin);
       const { data: existing } = await admin.from("app_users").select("id").eq("email", email).maybeSingle();
       if (existing) return reply({ error: "Este e-mail já está cadastrado." }, 409, origin);
       const { data: invitation, error: invitationError } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: invitationUrl + "/", data: { full_name: name },
+        redirectTo: appUrl + "/", data: { full_name: name },
       });
       if (invitationError || !invitation.user) return reply({ error: "Não foi possível enviar o convite. Verifique o e-mail e o serviço de e-mail do Supabase." }, 400, origin);
       const { error: profileError } = await admin.from("app_users").insert({

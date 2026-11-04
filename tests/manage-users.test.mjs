@@ -19,7 +19,7 @@ const appUrl = "https://brindes.example.com";
 const id = "11111111-1111-4111-8111-111111111111";
 const invitedId = "22222222-2222-4222-8222-222222222222";
 const profile = { id, full_name: "Administrador de teste", email: "admin@example.com", role: "admin", status: "active" };
-const env = { SUPABASE_URL: "https://backend.example.com", SUPABASE_SERVICE_ROLE_KEY: "test-only-not-a-real-key", APP_URL: appUrl, ALLOWED_ORIGINS: ` ${preview}/,\nhttps://other.example.com/ ` };
+const env = { SUPABASE_URL: "https://backend.example.com", SUPABASE_SERVICE_ROLE_KEY: "test-only-not-a-real-key", APP_URL: appUrl, INVITE_URL: preview, ALLOWED_ORIGINS: ` ${preview}/,\nhttps://other.example.com/ ` };
 const originalFetch = globalThis.fetch;
 const originalDeno = globalThis.Deno;
 let actor;
@@ -153,11 +153,11 @@ test("active administrator can list users from Preview", async () => {
   assert.ok(requests.every(r => r.method === "GET"));
 });
 
-test("invitation still uses APP_URL and creates an invited operator", async () => {
+test("invitation uses the validated activation URL and creates an invited operator", async () => {
   const response = await handler(request({ body: { action: "invite", name: " Novo Funcionário ", email: " NEW@example.com " } }));
   assert.equal(response.status, 200);
   const invite = requests.find(r => r.url.pathname === "/auth/v1/invite");
-  assert.equal(invite.url.searchParams.get("redirect_to"), appUrl + "/");
+  assert.equal(invite.url.searchParams.get("redirect_to"), preview + "/");
   assert.equal(invite.body.email, "new@example.com");
   const insert = requests.find(r => r.url.pathname === "/rest/v1/app_users" && r.method === "POST");
   assert.deepEqual(insert.body, { id: invitedId, full_name: "Novo Funcionário", email: "new@example.com", role: "operator", status: "invited", invited_by: id });

@@ -1,94 +1,88 @@
--- MIGRAÇÃO PROPOSTA, NÃO EXECUTAR ANTES DE CONFIRMAR O SUPABASE DO SITE.
--- Esta mudança revoga acesso anônimo, substitui políticas antigas e exige usuários convidados.
--- Faça backup e valide a versão do site antes de aplicar.
+-- Aplica acesso a funcionarios convidados e ativos ao banco original da Hercules.
+-- Revisao baseada nas politicas observadas: eb_backend_service_only nas 5 tabelas principais.
+-- PRESERVA as politicas atuais de service_role; NAO recria, exclui ou altera registros.
+-- Execute SOMENTE no projeto correto cddxvgegzzyafxgcpklt, apos backup.
 BEGIN;
 
-CREATE TABLE IF NOT EXISTS public.app_users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  full_name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'operator')),
-  status TEXT NOT NULL CHECK (status IN ('invited', 'active', 'blocked')),
-  invited_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+DO $$
+BEGIN
+  IF to_regclass('public.app_users') IS NULL THEN
+    RAISE EXCEPTION 'A tabela app_users precisa existir antes desta migracao.';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.app_users WHERE role = 'admin' AND status = 'active') THEN
+    RAISE EXCEPTION 'Cadastre um administrador ativo antes desta migracao.';
+  END IF;
+END $$;
 
 ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.app_users FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.app_users TO authenticated;
 DROP POLICY IF EXISTS app_users_read_self ON public.app_users;
-CREATE POLICY app_users_read_self ON public.app_users FOR SELECT TO authenticated
+CREATE POLICY app_users_read_self ON public.app_users
+  FOR SELECT TO authenticated
   USING (id = (SELECT auth.uid()));
-
--- As contas são gerenciadas exclusivamente pela Edge Function, usando service_role.
--- Ambos os perfis ativos possuem as mesmas permissões operacionais.
--- Antes de iniciar, garanta que ao menos um usuário administrador seja criado
--- pelo Dashboard do Supabase (Authentication > Users), e que haja um app_users
--- para esse mesmo auth.users.id, com role='admin' e status='active'.
 
 DO $$
 DECLARE
-  table_name TEXT;
-  existing_policy RECORD;
+  t TEXT;
 BEGIN
-  FOREACH table_name IN ARRAY ARRAY[
-    'destinatarios', 'brindes', 'configuracoes', 'declaracoes',
-    'declaracao_itens', 'notificacoes'
+  FOREACH t IN ARRAY ARRAY[
+    'brindes', 'configuracoes', 'declaracao_itens',
+    'declaracoes', 'destinatarios', 'notificacoes'
   ]
   LOOP
-    IF to_regclass('public.' || table_name) IS NULL THEN
-      RAISE EXCEPTION 'Tabela ausente: public.%', table_name;
+    IF to_regclass('public.' || t) IS NULL THEN
+      RAISE EXCEPTION 'Tabela ausente: public.%', t;
     END IF;
-    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', table_name);
-    FOR existing_policy IN
-      SELECT policyname FROM pg_policies
-      WHERE schemaname = 'public' AND tablename = table_name
-    LOOP
-      EXECUTE format('DROP POLICY %I ON public.%I', existing_policy.policyname, table_name);
-    END LOOP;
-    EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC, anon', table_name);
-    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', table_name);
+
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    -- O navegador nao deve acessar nenhuma das seis tabelas de forma anonima.
+    EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC, anon', t);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+
+    -- Mantem as politicas antigas de service_role e adiciona apenas
+    -- uma politica para funcionarios ativos.
+    EXECUTE format('DROP POLICY IF EXISTS eb_active_employee_access ON public.%I', t);
     EXECUTE format(
-      'CREATE POLICY app_users_active_access ON public.%I FOR ALL TO authenticated
-       USING (EXISTS (SELECT 1 FROM public.app_users
-                      WHERE id = (SELECT auth.uid()) AND status = ''active''))
-       WITH CHECK (EXISTS (SELECT 1 FROM public.app_users
-                           WHERE id = (SELECT auth.uid()) AND status = ''active''))',
-      table_name
+      'CREATE POLICY eb_active_employee_access ON public.%I
+       FOR ALL TO authenticated
+       USING (EXISTS (
+         SELECT 1 FROM public.app_users AS u
+         WHERE u.id = (SELECT auth.uid()) AND u.status = ''active''
+       ))
+       WITH CHECK (EXISTS (
+         SELECT 1 FROM public.app_users AS u
+         WHERE u.id = (SELECT auth.uid()) AND u.status = ''active''
+       ))',
+      t
     );
   END LOOP;
 END $$;
 
--- Bloqueia a antiga tabela interna criada pelo Figma Make, quando existir.
--- Somente o backend privilegiado poderá acessá-la.
-DO $
-DECLARE old_policy RECORD;
-BEGIN
-  IF to_regclass('public.kv_store_8d3e443d') IS NOT NULL THEN
-    ALTER TABLE public.kv_store_8d3e443d ENABLE ROW LEVEL SECURITY;
-    FOR old_policy IN SELECT policyname FROM pg_policies
-      WHERE schemaname = 'public' AND tablename = 'kv_store_8d3e443d'
-    LOOP
-      EXECUTE format('DROP POLICY %I ON public.kv_store_8d3e443d', old_policy.policyname);
-    END LOOP;
-    REVOKE ALL ON public.kv_store_8d3e443d FROM PUBLIC, anon, authenticated;
-  END IF;
-END $;
-
--- Protege RPCs que alteram estoque. RLS da tabela brindes permanece em vigor.
+-- Protege funcoes publicas do estoque contra chamadas anonimas.
 DO $$
 BEGIN
   IF to_regprocedure('public.decrease_stock(uuid,integer)') IS NOT NULL THEN
-    REVOKE EXECUTE ON FUNCTION public.decrease_stock(UUID, INTEGER) FROM PUBLIC, anon;
-    GRANT EXECUTE ON FUNCTION public.decrease_stock(UUID, INTEGER) TO authenticated;
+    REVOKE EXECUTE ON FUNCTION public.decrease_stock(uuid,integer) FROM PUBLIC, anon;
+    GRANT EXECUTE ON FUNCTION public.decrease_stock(uuid,integer) TO authenticated;
   END IF;
   IF to_regprocedure('public.increase_stock(uuid,integer)') IS NOT NULL THEN
-    REVOKE EXECUTE ON FUNCTION public.increase_stock(UUID, INTEGER) FROM PUBLIC, anon;
-    GRANT EXECUTE ON FUNCTION public.increase_stock(UUID, INTEGER) TO authenticated;
+    REVOKE EXECUTE ON FUNCTION public.increase_stock(uuid,integer) FROM PUBLIC, anon;
+    GRANT EXECUTE ON FUNCTION public.increase_stock(uuid,integer) TO authenticated;
   END IF;
-  -- Verificação por cron permanece no backend: nunca expor essa função definer no browser.
   IF to_regprocedure('public.run_rastreio_check()') IS NOT NULL THEN
+    -- Rotina de backend nao deve ser executavel pelo navegador.
     REVOKE EXECUTE ON FUNCTION public.run_rastreio_check() FROM PUBLIC, anon, authenticated;
   END IF;
 END $$;
 COMMIT;
+
+-- POS-VERIFICACAO (somente leitura; executar apos COMMIT):
+-- SELECT tablename, policyname, roles FROM pg_policies
+-- WHERE schemaname='public' AND policyname='eb_active_employee_access';
+-- SELECT c.relname AS tabela,
+--        has_table_privilege('anon', c.oid, 'SELECT') AS leitura_anonima,
+--        has_table_privilege('authenticated', c.oid, 'SELECT') AS leitura_autenticada
+-- FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+-- WHERE n.nspname='public' AND c.relname IN
+--   ('brindes','configuracoes','declaracao_itens','declaracoes','destinatarios','notificacoes');

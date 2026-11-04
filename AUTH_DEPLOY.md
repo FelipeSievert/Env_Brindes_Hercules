@@ -14,8 +14,13 @@ foram informados pelo responsável. O teste HTTP da função publicada confirmou
 - A candidata `manage-users-preview` foi publicada separadamente. A variável
   `VITE_MANAGE_USERS_FUNCTION=manage-users-preview` foi configurada somente para Preview
   da branch `fix/vercel-build-configuration`.
-- Esta correção não executa SQL, migrations, alterações de políticas ou envios reais de convites.
-  A homologação autenticada deve ocorrer antes de substituir a função `manage-users`.
+- A homologação autenticada da candidata passou: Gerenciar usuários carregou a conta
+  administradora no alias estável. Só então os mesmos arquivos foram publicados em
+  `manage-users` v5, preservando `verify_jwt=false` e a autenticação obrigatória do handler.
+- A tela também foi validada no Preview anterior `mryrruru8`, que usa `manage-users`:
+  listagem carregada e nenhum erro no console capturado após recarregar a página.
+- Esta correção não executou SQL, migrations, alterações de políticas, mudanças em
+  contas existentes ou envios reais de convites. O PR do frontend continua em rascunho.
 
 ### Implantação isolada antes da produção
 
@@ -77,8 +82,15 @@ foram informados pelo responsável. O teste HTTP da função publicada confirmou
 - TypeScript: os mesmos 7 erros já existentes no commit-base `dabb290`, em
   `AuthGate.tsx` (PromiseLike/finally) e `Configuracoes.tsx` (tipos de configuração).
   Nenhum novo erro foi introduzido por esta correção; a checagem global ainda não passa.
-- Candidata publicada: `manage-users-preview`, versão 1; sem substituir `manage-users` v4.
-- Pendente: validar uma listagem autenticada no Preview antes de substituir `manage-users`.
+- Candidata publicada: `manage-users-preview` v1; listagem autenticada validada no navegador.
+- Função principal: `manage-users` v5, publicada **após** a homologação da candidata,
+  usando exatamente os mesmos arquivos de implementação e preservando `verify_jwt=false`.
+- Teste HTTP da função principal com a origem do Preview anterior `mryrruru8`: OPTIONS 204,
+  todos os cabeçalhos exigidos pelo SDK e tentativa sem sessão negada com 401.
+- Teste autenticado da função principal no Preview anterior: conta administradora
+  listada, sem o FunctionsFetchError e sem erros no console capturado após reload.
+- Banco, dados, contas e configurações de convite preservados. Nenhum convite real enviado.
+- A publicação completa do frontend segue separada, via revisão do PR #1; não foi mesclado.
 
 ## Configuração inicial (referência histórica)
 

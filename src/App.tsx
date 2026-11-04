@@ -100,7 +100,7 @@ export default function App() {
     try {
       const saved = await db.insertDeclaracao(copy);
       setDeclaracoes((prev) => [saved, ...prev]);
-      setBrindes(await db.fetchBrindes());
+      try { setBrindes(await db.fetchBrindes()); } catch (_) {}
     } catch (e) {
       alert(e instanceof Error ? e.message : "Erro ao duplicar declaração.");
     }

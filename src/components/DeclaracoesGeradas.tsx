@@ -18,7 +18,11 @@ const statusInfo: Record<string, { label: string; color: string }> = {
   gerada:   { label: "Gerada",   color: "bg-blue-100 text-blue-700" },
   impressa: { label: "Impressa", color: "bg-amber-100 text-amber-700" },
   enviada:  { label: "Enviada",  color: "bg-green-100 text-green-700" },
+  gerado:   { label: "Gerado",   color: "bg-blue-100 text-blue-700" },
+  informado:{ label: "Informado", color: "bg-green-100 text-green-700" },
+  devolvido:{ label: "Devolvido", color: "bg-orange-100 text-orange-700" },
 };
+const fallbackStatus = { label: "Outro status", color: "bg-slate-100 text-slate-700" };
 
 const rastreioConfig: Record<StatusRastreio, { label: string; dot: string; text: string }> = {
   informado:  { label: "Rastreio informado",       dot: "bg-green-500",  text: "text-green-700" },
@@ -76,9 +80,9 @@ export default function DeclaracoesGeradas({
   const filtered = declaracoes.filter((d) => {
     const q = search.toLowerCase();
     const matchQ =
-      d.numero.toLowerCase().includes(q) ||
-      d.destinatario.nome.toLowerCase().includes(q) ||
-      d.destinatario.cidade.toLowerCase().includes(q);
+      String(d.numero ?? "").toLowerCase().includes(q) ||
+      String(d.destinatario?.nome ?? "").toLowerCase().includes(q) ||
+      String(d.destinatario?.cidade ?? "").toLowerCase().includes(q);
     const matchStatus   = filterStatus === "todos"    || d.status === filterStatus;
     const rastreioSt    = calcStatusRastreio(d);
     const matchRastreio = filterRastreio === "todos"  || rastreioSt === filterRastreio;
@@ -151,7 +155,10 @@ export default function DeclaracoesGeradas({
           </thead>
           <tbody>
             {filtered.map((dec, i) => {
-              const s = statusInfo[dec.status];
+              const s = statusInfo[String(dec.status ?? "").toLowerCase()] ?? {
+                ...fallbackStatus,
+                label: String(dec.status ?? "Desconhecido"),
+              };
               const rastreioSt = calcStatusRastreio(dec);
               const isPendente = rastreioSt === "pendente";
               const isEditingThis = editingRastreio === dec.id;
@@ -169,10 +176,10 @@ export default function DeclaracoesGeradas({
                     {dec.numero}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-[#1E293B] font-['Inter'] font-500">
-                    {dec.destinatario.nome}
+                    {dec.destinatario?.nome ?? 'Destinatário não informado'}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-[#64748B] font-['Inter'] whitespace-nowrap">
-                    {dec.destinatario.cidade}/{dec.destinatario.uf}
+                    {dec.destinatario?.cidade ?? '—'}/{dec.destinatario?.uf ?? '—'}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-[#64748B] font-['Inter'] whitespace-nowrap">
                     {dec.data}
@@ -184,7 +191,7 @@ export default function DeclaracoesGeradas({
                     {dec.totalItens}
                   </td>
                   <td className="px-4 py-3.5 text-sm font-['JetBrains_Mono',monospace] text-[#1E293B] whitespace-nowrap">
-                    {dec.pesoTotal.toFixed(3)} kg
+                    {(Number(dec.pesoTotal) || 0).toFixed(3)} kg
                   </td>
                   <td className="px-4 py-3.5">
                     <span className={`text-[11px] font-['Inter'] font-600 px-2 py-1 rounded-full ${s.color}`}>
@@ -296,7 +303,7 @@ export default function DeclaracoesGeradas({
                 <p className="text-sm text-[#64748B] mt-1 font-['Inter']">
                   Tem certeza que deseja excluir a declaração{" "}
                   <span className="font-600 text-[#1E293B]">{toDelete.numero}</span> de{" "}
-                  <span className="font-600 text-[#1E293B]">{toDelete.destinatario.nome}</span>?
+                  <span className="font-600 text-[#1E293B]">{toDelete.destinatario?.nome ?? 'Destinatário não informado'}</span>?
                   Esta ação não pode ser desfeita.
                 </p>
               </div>

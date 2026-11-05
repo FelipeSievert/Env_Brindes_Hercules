@@ -103,3 +103,19 @@ test("Actual database client sends one atomic RPC and maps the saved snapshot on
   assert.equal(calls.length, 2, "A lost mutation response must never cause an automatic duplicate retry");
   delete globalThis.declarationRpcTest;
 });
+
+test("Authorship displays the original creator and a separate editor, with safe legacy fallbacks", async () => {
+  const { default: AuthorInfo } = await import("../src/components/AuthorInfo.tsx");
+  const { mapAuthorship, formatAuthorDate } = await import("../src/lib/authorship.ts");
+  const record = mapAuthorship({ created_by: "creator", created_by_name: "Original <user>", created_at: "2026-11-05T13:30:00Z", updated_by: "editor", updated_by_name: "Editor", updated_at: "2026-11-05T14:30:00Z" });
+  const html = renderToStaticMarkup(React.createElement(AuthorInfo, { record }));
+  assert.ok(html.includes("Original &lt;user&gt;"));
+  assert.ok(html.includes("Última alteração: Editor"));
+  assert.ok(html.includes("10:30"));
+  assert.ok(html.includes("11:30"));
+  assert.equal(formatAuthorDate("invalid"), "");
+  assert.ok(renderToStaticMarkup(React.createElement(AuthorInfo, { record: mapAuthorship({}) })).includes("Autor não identificado"));
+  const mappedRecipient = mapDestinatario({ ...baseRecipient, created_by: "creator", created_by_name: "Original" });
+  assert.equal(mappedRecipient.createdBy, "creator");
+  assert.equal(toDbDestinatario(mappedRecipient).created_by, undefined, "Client must never send trusted actor fields");
+});

@@ -1,4 +1,5 @@
 import type { Destinatario } from "../types";
+import { mapAuthorship } from "./authorship";
 
 export function toDbDestinatario(d: Omit<Destinatario, "id"> | Destinatario) {
   return {
@@ -19,6 +20,7 @@ export function mapDestinatario(row: Record<string, unknown>): Destinatario {
     complemento: String(row.complemento ?? ""), bairro: String(row.bairro ?? ""),
     cidade: String(row.cidade ?? ""), uf: String(row.uf ?? ""), categorias,
     aosCuidados: String(row.aos_cuidados ?? ""),
+    ...mapAuthorship(row),
   };
 }
 

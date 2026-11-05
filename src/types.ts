@@ -10,7 +10,16 @@ export type Page =
   | "declaracao-preview"
   | "importar-word";
 
-export interface Destinatario {
+export interface Authorship {
+  createdBy?: string;
+  createdByName?: string;
+  createdAt?: string;
+  updatedBy?: string;
+  updatedByName?: string;
+  updatedAt?: string;
+}
+
+export interface Destinatario extends Authorship {
   id: string;
   nome: string;
   aosCuidados?: string;
@@ -25,7 +34,7 @@ export interface Destinatario {
   categorias: string[];
 }
 
-export interface Brinde {
+export interface Brinde extends Authorship {
   id: string;
   nome: string;
   categoria: string;
@@ -45,9 +54,9 @@ export type StatusDeclaracao = "gerado" | "informado" | "devolvido" | "cancelado
 
 export type StatusRastreio = "informado" | "aguardando" | "pendente";
 
-export interface Responsavel { id: string; nome: string; email: string; }
+export interface Responsavel extends Authorship { id: string; nome: string; email: string; }
 
-export interface Declaracao {
+export interface Declaracao extends Authorship {
   id: string;
   numero: string;
   destinatario: Destinatario;

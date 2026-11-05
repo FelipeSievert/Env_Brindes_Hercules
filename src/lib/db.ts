@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { mapAuthorship } from "./authorship";
 import { Destinatario, Brinde, Declaracao, Configuracoes, Notificacao, Responsavel } from "../types";
 import { toDbDestinatario, mapDestinatario, declarationRecipient } from "./recipient";
 import { normalizeDeclarationStatus } from "./declarationStatus";
@@ -43,11 +44,12 @@ export async function insertDestinatario(d: Omit<Destinatario, "id">): Promise<D
   });
 }
 
-export async function updateDestinatario(d: Destinatario): Promise<void> {
+export async function updateDestinatario(d: Destinatario): Promise<Destinatario> {
   return withRetry(async () => {
-    const { error } = await supabase
-      .from("destinatarios").update(toDbDestinatario(d)).eq("id", d.id);
+    const { data, error } = await supabase
+      .from("destinatarios").update(toDbDestinatario(d)).eq("id", d.id).select().single();
     if (error) throw new Error(error.message);
+    return mapDestinatario(data);
   });
 }
 
@@ -93,10 +95,11 @@ export async function insertBrinde(b: Omit<Brinde, "id">): Promise<Brinde> {
   });
 }
 
-export async function updateBrinde(b: Brinde): Promise<void> {
+export async function updateBrinde(b: Brinde): Promise<Brinde> {
   return withRetry(async () => {
-    const { error } = await supabase.from("brindes").update(toDbBrinde(b)).eq("id", b.id);
+    const { data, error } = await supabase.from("brindes").update(toDbBrinde(b)).eq("id", b.id).select().single();
     if (error) throw new Error(error.message);
+    return mapBrinde(data);
   });
 }
 
@@ -119,6 +122,7 @@ function toDbBrinde(b: Omit<Brinde, "id">) {
 
 function mapBrinde(row: Record<string, unknown>): Brinde {
   return {
+    ...mapAuthorship(row),
     id: String(row.id),
     nome: String(row.nome ?? ""),
     categoria: String(row.categoria ?? ""),
@@ -249,8 +253,8 @@ export async function sendTrackingEmail(id: string): Promise<string> {
   return data.status === "enviado" ? "Rastreio salvo e e-mail enviado ao responsável." : "Rastreio salvo. Situação do e-mail: "+data.status;
 }
 export async function fetchResponsaveis(): Promise<Responsavel[]> {
- const {data,error}=await supabase.from("responsaveis_solicitacao").select("id,nome,email").order("nome");
- if(error) throw new Error(error.message); return data??[];
+ const {data,error}=await supabase.from("responsaveis_solicitacao").select("*").order("nome");
+ if(error) throw new Error(error.message); return (data??[]).map(row => ({ id: row.id, nome: row.nome, email: row.email, ...mapAuthorship(row) }));
 }
 export async function saveResponsavel(row: {id?:string;nome:string;email:string}): Promise<void> {
  const result=row.id?await supabase.from("responsaveis_solicitacao").update({nome:row.nome,email:row.email}).eq("id",row.id):await supabase.from("responsaveis_solicitacao").insert({nome:row.nome,email:row.email});
@@ -281,6 +285,7 @@ function mapDeclaracao(row: Record<string, unknown>): Declaracao {
   });
 
   return {
+    ...mapAuthorship(row),
     id: String(row.id),
     numero: String(row.numero ?? ""),
     destinatario: declarationRecipient(row),
@@ -347,4 +352,13 @@ function mapNotificacao(row: Record<string, unknown>): Notificacao {
     lida: Boolean(row.lida),
     createdAt: String(row.created_at ?? ""),
   };
+}
+
+export async function fetchStockMovements(giftId: string) {
+  const { data, error } = await supabase.from("estoque_movimentacoes")
+    .select("id,tipo,quantidade,saldo_apos,motivo,created_by,created_by_name,created_at,updated_by,updated_by_name,updated_at")
+    .eq("brinde_id", giftId).order("created_at", { ascending: false }).limit(100);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(row => ({ id: String(row.id), tipo: String(row.tipo), quantidade: Number(row.quantidade),
+    saldo: Number(row.saldo_apos), motivo: String(row.motivo), ...mapAuthorship(row) }));
 }

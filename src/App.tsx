@@ -111,6 +111,7 @@ export default function App() {
   }
 
   function handleUpdateRastreio(id: string, codigo: string) {
+    db.fetchDeclaracoes().then(setDeclaracoes).catch(() => {});
     setDeclaracoes((prev) =>
       prev.map((d) => d.id === id ? { ...d, codigoRastreio: codigo, status: "informado" } : d)
     );
@@ -195,8 +196,8 @@ export default function App() {
               setDestinatarios((prev) => [saved, ...prev]);
             }}
             onEdit={async (d) => {
-              await db.updateDestinatario(d);
-              setDestinatarios((prev) => prev.map((x) => (x.id === d.id ? d : x)));
+              const saved = await db.updateDestinatario(d);
+              setDestinatarios((prev) => prev.map((x) => (x.id === d.id ? saved : x)));
             }}
             onDelete={async (id) => {
               await db.deleteDestinatario(id);
@@ -217,8 +218,8 @@ export default function App() {
               setBrindes((prev) => [saved, ...prev]);
             }}
             onEdit={async (b) => {
-              await db.updateBrinde(b);
-              setBrindes((prev) => prev.map((x) => (x.id === b.id ? b : x)));
+              const saved = await db.updateBrinde(b);
+              setBrindes((prev) => prev.map((x) => (x.id === b.id ? saved : x)));
             }}
             onDelete={async (id) => {
               await db.deleteBrinde(id);

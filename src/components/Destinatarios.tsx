@@ -1,3 +1,5 @@
+import AuthorInfo, { MyRecordsFilter } from "./AuthorInfo";
+import { useAuth } from "../auth/AuthGate";
 import { useState, useRef, KeyboardEvent } from "react";
 import { Search, Plus, Upload, Edit2, Trash2, Eye, X, Save, AlertCircle, Tag, CheckSquare, Square, Tags } from "lucide-react";
 import { Destinatario } from "../types";
@@ -79,6 +81,8 @@ function CatTagInput({
 }
 
 export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, onImport }: Props) {
+  const { user } = useAuth();
+  const [onlyMine, setOnlyMine] = useState(false);
   const [search, setSearch] = useState("");
   const [filterCategoria, setFilterCategoria] = useState("");
 
@@ -120,7 +124,7 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
       (d.cpfCnpj ?? "").includes(q) ||
       (d.cidade ?? "").toLowerCase().includes(q);
     const matchCat = !filterCategoria || (d.categorias ?? []).includes(filterCategoria);
-    return matchSearch && matchCat;
+    return matchSearch && matchCat && (!onlyMine || d.createdBy === user.id);
   });
 
   // ── Form helpers ─────────────────────────────────────────────────────────────
@@ -465,7 +469,8 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
       )}
 
       {/* Search + category filter */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
+        <MyRecordsFilter value={onlyMine} onChange={setOnlyMine} />
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
           <input
@@ -489,7 +494,7 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-[6px] border border-[#DDE3EC] overflow-hidden">
+      <div className="bg-white rounded-[6px] border border-[#DDE3EC] overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#DDE3EC] bg-[#F8FAFC]">
@@ -502,7 +507,7 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
                   </button>
                 </th>
               )}
-              {["Nome", "Categorias", "CPF/CNPJ", "Endereço", "Cidade", "UF", "CEP", "Ações"].map((h) => (
+              {["Nome", "Categorias", "CPF/CNPJ", "Endereço", "Cidade", "UF", "CEP", "Cadastrado por", "Ações"].map((h) => (
                 <th key={h} className="px-5 py-3 text-left text-[10px] font-['Inter'] font-600 uppercase tracking-[0.08em] text-[#64748B]">
                   {h}
                 </th>
@@ -546,6 +551,7 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
                   <td className="px-5 py-3.5 text-sm text-[#64748B] font-['Inter']">{d.cidade}</td>
                   <td className="px-5 py-3.5 text-sm font-['JetBrains_Mono',monospace] text-[#64748B]">{d.uf}</td>
                   <td className="px-5 py-3.5 text-sm font-['JetBrains_Mono',monospace] text-[#64748B]">{d.cep}</td>
+                  <td className="px-5 py-3.5"><AuthorInfo record={d} /></td>
                   <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <button onClick={() => setViewing(d)} className="p-1.5 rounded hover:bg-[#EEF2F7] text-[#64748B] hover:text-[#1A3A6B] transition-colors" title="Visualizar"><Eye size={15} /></button>
@@ -558,7 +564,7 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={bulkMode ? 9 : 8} className="px-5 py-10 text-center text-sm text-[#64748B] font-['Inter']">
+                <td colSpan={bulkMode ? 10 : 9} className="px-5 py-10 text-center text-sm text-[#64748B] font-['Inter']">
                   Nenhum destinatário encontrado.
                 </td>
               </tr>
@@ -706,6 +712,7 @@ export default function Destinatarios({ destinatarios, onAdd, onEdit, onDelete, 
               <button onClick={() => setViewing(null)}><X size={18} className="text-[#64748B]" /></button>
             </div>
             <div className="p-6 space-y-3">
+              <div><p className="text-xs text-[#64748B] mb-1">Cadastrado por</p><AuthorInfo record={viewing} /></div>
               {[
                 ["Nome", viewing.nome],
                 ...(viewing.aosCuidados?.trim() ? [["A/C", viewing.aosCuidados]] : []),

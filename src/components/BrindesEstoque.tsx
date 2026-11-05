@@ -1,3 +1,6 @@
+import StockHistory from "./StockHistory";
+import AuthorInfo, { MyRecordsFilter } from "./AuthorInfo";
+import { useAuth } from "../auth/AuthGate";
 import { useState } from "react";
 import { Plus, Edit2, Trash2, X, Save, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { Brinde } from "../types";
@@ -18,6 +21,9 @@ function stockStatus(b: Brinde): { label: string; icon: React.ReactNode; badge: 
 const emptyForm = (): Omit<Brinde, "id"> => ({ nome: "", categoria: "", quantidade: 0, pesoUnitario: 0, valor: 0 });
 
 export default function BrindesEstoque({ brindes, onAdd, onEdit, onDelete }: Props) {
+  const { user } = useAuth();
+  const [onlyMine, setOnlyMine] = useState(false);
+  const [historyGift, setHistoryGift] = useState<Brinde | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Brinde | null>(null);
   const [form, setForm] = useState(emptyForm());
@@ -44,6 +50,7 @@ export default function BrindesEstoque({ brindes, onAdd, onEdit, onDelete }: Pro
     try { await onDelete(id); } catch (e) { alert(e instanceof Error ? e.message : "Erro ao excluir."); }
   }
 
+  const filtered = brindes.filter(b => !onlyMine || b.createdBy === user.id);
   const totalEstoque = brindes.reduce((s, b) => s + b.quantidade, 0);
   const semEstoque = brindes.filter((b) => b.quantidade === 0).length;
   const baixo = brindes.filter((b) => b.quantidade > 0 && b.quantidade <= 10).length;
@@ -74,17 +81,19 @@ export default function BrindesEstoque({ brindes, onAdd, onEdit, onDelete }: Pro
         ))}
       </div>
 
-      <div className="bg-white rounded-[6px] border border-[#DDE3EC] overflow-hidden">
+      {historyGift && <StockHistory gift={historyGift} onClose={() => setHistoryGift(null)} />}
+      <MyRecordsFilter value={onlyMine} onChange={setOnlyMine} />
+      <div className="bg-white rounded-[6px] border border-[#DDE3EC] overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#DDE3EC] bg-[#F8FAFC]">
-              {["Nome","Categoria","Qtd. Disponível","Peso Unit. (kg)","Valor (R$)","Status","Ações"].map((h) => (
+              {["Nome","Categoria","Qtd. Disponível","Peso Unit. (kg)","Valor (R$)","Status","Cadastrado por","Ações"].map((h) => (
                 <th key={h} className="px-5 py-3 text-left text-[10px] font-['Inter'] font-600 uppercase tracking-[0.08em] text-[#64748B]">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {brindes.map((b, i) => {
+            {filtered.map((b, i) => {
               const s = stockStatus(b);
               return (
                 <tr key={b.id} className={`border-b border-[#DDE3EC]/60 ${i % 2 === 0 ? "" : "bg-[#F8FAFC]/50"}`}>
@@ -98,8 +107,10 @@ export default function BrindesEstoque({ brindes, onAdd, onEdit, onDelete }: Pro
                       {s.icon}{s.label}
                     </span>
                   </td>
+                  <td className="px-5 py-3.5"><AuthorInfo record={b} /></td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
+                      <button onClick={() => setHistoryGift(b)} className="text-xs text-[#1A3A6B] underline">Histórico</button>
                       <button onClick={() => openEdit(b)} className="p-1.5 rounded hover:bg-[#EEF2F7] text-[#64748B] hover:text-[#1A3A6B] transition-colors"><Edit2 size={15} /></button>
                       <button onClick={() => handleDelete(b.id)} className="p-1.5 rounded hover:bg-red-50 text-[#64748B] hover:text-[#D42B1E] transition-colors"><Trash2 size={15} /></button>
                     </div>
@@ -107,8 +118,8 @@ export default function BrindesEstoque({ brindes, onAdd, onEdit, onDelete }: Pro
                 </tr>
               );
             })}
-            {brindes.length === 0 && (
-              <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-[#64748B] font-['Inter']">Nenhum brinde cadastrado.</td></tr>
+            {filtered.length === 0 && (
+              <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-[#64748B] font-['Inter']">Nenhum brinde cadastrado.</td></tr>
             )}
           </tbody>
         </table>

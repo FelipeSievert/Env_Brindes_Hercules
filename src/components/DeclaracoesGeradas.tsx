@@ -1,3 +1,5 @@
+import AuthorInfo, { MyRecordsFilter } from "./AuthorInfo";
+import { useAuth } from "../auth/AuthGate";
 import { useState } from "react";
 import {
   Eye, Printer, Download, Copy, Search, Trash2, AlertTriangle,
@@ -36,6 +38,8 @@ function RastreioIndicator({ status }: { status: StatusRastreio }) {
 export default function DeclaracoesGeradas({
   declaracoes, onView, onDuplicate, onDelete, onUpdateRastreio,
 }: Props) {
+  const { user } = useAuth();
+  const [onlyMine, setOnlyMine] = useState(false);
   const [search, setSearch]         = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterRastreio, setFilterRastreio] = useState("todos");
@@ -83,7 +87,7 @@ export default function DeclaracoesGeradas({
     const matchStatus   = filterStatus === "todos"    || d.status === filterStatus;
     const rastreioSt    = calcStatusRastreio(d);
     const matchRastreio = filterRastreio === "todos"  || rastreioSt === filterRastreio;
-    return matchQ && matchStatus && matchRastreio;
+    return matchQ && matchStatus && matchRastreio && (!onlyMine || d.createdBy === user.id);
   });
 
   const pendentesCount = declaracoes.filter(
@@ -108,6 +112,7 @@ export default function DeclaracoesGeradas({
       {emailFeedback&&<p role="status" className="bg-blue-50 border p-3 rounded">{emailFeedback}</p>}
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
+        <MyRecordsFilter value={onlyMine} onChange={setOnlyMine} />
         <div className="relative flex-1 min-w-[220px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
           <input
@@ -138,11 +143,11 @@ export default function DeclaracoesGeradas({
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-[6px] border border-[#DDE3EC] overflow-hidden">
+      <div className="bg-white rounded-[6px] border border-[#DDE3EC] overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#DDE3EC] bg-[#F8FAFC]">
-              {["Número", "Destinatário", "Cidade", "Data", "Responsável", "Qtd.", "Peso", "Status", "Rastreio", "Código Rastreio", "Ações"].map((h) => (
+              {["Número", "Destinatário", "Cidade", "Data", "Responsável", "Gerada por", "Qtd.", "Peso", "Status", "Rastreio", "Código Rastreio", "Ações"].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-[10px] font-['Inter'] font-600 uppercase tracking-[0.08em] text-[#64748B] whitespace-nowrap">
                   {h}
                 </th>
@@ -180,6 +185,7 @@ export default function DeclaracoesGeradas({
                   <td className="px-4 py-3.5 text-sm text-[#1E293B] font-['Inter']">
                     {dec.responsavel || <span className="text-[#CBD5E1]">—</span>}
                   </td>
+                  <td className="px-4 py-3.5"><AuthorInfo record={dec} /></td>
                   <td className="px-4 py-3.5 text-sm font-['JetBrains_Mono',monospace] text-[#1E293B]">
                     {dec.totalItens}
                   </td>
@@ -264,7 +270,7 @@ export default function DeclaracoesGeradas({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-5 py-10 text-center text-sm text-[#64748B] font-['Inter']">
+                <td colSpan={12} className="px-5 py-10 text-center text-sm text-[#64748B] font-['Inter']">
                   Nenhuma declaração encontrada.
                 </td>
               </tr>

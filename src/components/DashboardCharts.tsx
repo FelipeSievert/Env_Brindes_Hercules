@@ -68,7 +68,7 @@ export default function DashboardCharts({ declaracoes }: { declaracoes: Declarac
         <p className="text-xs text-[#64748B] mt-1">{label} · Média por declaração em que o brinde apareceu · Gerado e Informado</p>
         {gifts.length ? <div className="grid sm:grid-cols-2 gap-x-8 gap-y-5 mt-6">{gifts.map(g => <div key={g.key}>
           <div className="flex justify-between gap-4 text-sm mb-1.5"><span className="text-[#475569] break-words">{g.label}</span><span className="font-600 text-[#1E293B] shrink-0">{g.average.toLocaleString("pt-BR",{maximumFractionDigits:2})} un./decl.</span></div>
-          <p className="text-xs text-[#64748B] mb-2">{g.count.toLocaleString("pt-BR")} unidades em {g.occurrences} {g.occurrences===1?"declaração":"declarações"}</p>
+          <p className="text-xs text-[#64748B] mb-2">{g.count.toLocaleString("pt-BR")} {g.count===1?"unidade":"unidades"} em {g.occurrences} {g.occurrences===1?"declaração":"declarações"}</p>
           <div className="h-2 rounded-full bg-[#F1F4F8]" aria-hidden="true"><div className="h-full rounded-full bg-[#1A3A6B]" style={{ width: `${g.average / maxGift * 100}%` }} /></div>
         </div>)}</div> : <p className="text-sm text-[#64748B] py-8">Nenhum item em declarações ativas neste período.</p>}
       </div>

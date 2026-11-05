@@ -204,7 +204,7 @@ export default function DeclaracoesGeradas({
                   <td className="px-4 py-3.5 min-w-[180px]">
                     {isEditingThis ? (
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {dec.responsavelEmail && <label className="w-full text-xs">Mensagem para {dec.responsavelEmail}<textarea aria-label="Mensagem do e-mail" value={mensagem} onChange={e=>setMensagem(e.target.value)} maxLength={3000} className="block border rounded p-2 w-full" /></label>}
+                        {dec.responsavelEmail && <label className="w-full text-xs">Mensagem para {dec.responsavelEmail} · Declaração em PDF anexada automaticamente<textarea aria-label="Mensagem do e-mail" value={mensagem} onChange={e=>setMensagem(e.target.value)} maxLength={3000} className="block border rounded p-2 w-full" /></label>}
                         <input
                           autoFocus
                           value={rastreioInput}

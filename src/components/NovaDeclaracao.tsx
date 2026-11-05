@@ -425,7 +425,7 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
                 {responsaveis.map(r=><option key={r.id} value={r.id}>{r.nome} — {r.email}</option>)}
               </select>
               <p className="text-xs text-slate-500">Cadastre nomes e e-mails no menu Responsáveis.</p>
-              {responsavel && <label className="block pt-3 text-sm">Mensagem para acompanhar o rastreio<textarea value={mensagemRastreio} onChange={e=>setMensagemRastreio(e.target.value)} maxLength={3000} rows={4} placeholder="Escreva sua mensagem. (CÓDIGO) será substituído pelo rastreio informado." className="block w-full border rounded p-3" /></label>}
+              {responsavel && <label className="block pt-3 text-sm">Mensagem para acompanhar o rastreio (declaração em PDF anexada automaticamente)<textarea value={mensagemRastreio} onChange={e=>setMensagemRastreio(e.target.value)} maxLength={3000} rows={4} placeholder="Escreva sua mensagem. (CÓDIGO) será substituído pelo rastreio informado." className="block w-full border rounded p-3" /></label>}
             </div>
 
             {stockWarnings.length > 0 && (

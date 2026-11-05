@@ -1,15 +1,31 @@
+import { buildDeclarationPdf } from "./declaration-pdf.ts";
 import { renderTrackingMessage } from "./message.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2.115.0/cors";
 import { createCorsPolicy } from "../manage-users/cors.ts";
 import { previewOrigins } from "../manage-users/preview-origins.ts";
 const cors=createCorsPolicy([Deno.env.get("ALLOWED_ORIGINS")??"",...previewOrigins].join(","),Deno.env.get("APP_URL")??"",corsHeaders);
-export function encode(value:string){return btoa(String.fromCharCode(...new TextEncoder().encode(value))).replaceAll("+","-").replaceAll("/","_").replaceAll("=","");}
-export function buildMessage(sender:string,to:string,text:string){
- if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(sender)||!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(to)) throw new Error("Endereço de e-mail inválido.");
- const subject=btoa("Codigo de rastreio - Hercules");
- return encode([`From: ${sender}`,`To: ${to}`,`Subject: =?UTF-8?B?${subject}?=`,"MIME-Version: 1.0","Content-Type: text/plain; charset=UTF-8","Content-Transfer-Encoding: base64","",btoa(String.fromCharCode(...new TextEncoder().encode(text)))].join("\r\n"));
+function base64(bytes: Uint8Array): string {
+ let binary="";
+ for(let offset=0;offset<bytes.length;offset+=32768)binary+=String.fromCharCode(...bytes.subarray(offset,offset+32768));
+ return btoa(binary);
 }
+export function encode(value:string){return base64(new TextEncoder().encode(value)).replaceAll("+","-").replaceAll("/","_").replaceAll("=","");}
+type PdfAttachment={filename:string;bytes:Uint8Array};
+export function buildMessage(sender:string,to:string,text:string,attachment?:PdfAttachment){
+ if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(sender)||!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(to)) throw new Error("Endereço de e-mail inválido.");
+ const headers=[`From: ${sender}`,`To: ${to}`,`Subject: =?UTF-8?B?${btoa("Codigo de rastreio - Hercules")}?=`,"MIME-Version: 1.0"];
+ const message=base64(new TextEncoder().encode(text));
+ if(!attachment)return encode([...headers,"Content-Type: text/plain; charset=UTF-8","Content-Transfer-Encoding: base64","",message].join("\r\n"));
+ if(!/^[a-zA-Z0-9_.-]{1,100}\.pdf$/.test(attachment.filename)||attachment.bytes.length===0||attachment.bytes.length>10*1024*1024)throw new Error("Anexo PDF inválido ou muito grande.");
+ const boundary="hercules_"+crypto.randomUUID().replaceAll("-","");
+ const fold=(value:string)=>value.match(/.{1,76}/g)?.join("\r\n")??"";
+ return encode([...headers,`Content-Type: multipart/mixed; boundary="${boundary}"`,"",
+  `--${boundary}`,"Content-Type: text/plain; charset=UTF-8","Content-Transfer-Encoding: base64","",fold(message),
+  `--${boundary}`,`Content-Type: application/pdf; name="${attachment.filename}"`,
+  `Content-Disposition: attachment; filename="${attachment.filename}"`,"Content-Transfer-Encoding: base64","",fold(base64(attachment.bytes)),`--${boundary}--`,""].join("\r\n"));
+}
+
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get("origin")??"";
  const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{...Object.fromEntries(cors.headers(origin)),"Content-Type":"application/json","Cache-Control":"no-store"}});
@@ -32,8 +48,12 @@ Deno.serve(async(req:Request)=>{
  const {data:claimed,error:claimError}=await admin.from("rastreio_emails").update({status:"enviando",erro:null}).eq("id",id).in("status",["pendente","erro"]).select("id").maybeSingle();
  if(claimError)throw new Error("Não foi possível reservar o envio.");
  if(!claimed)return reply({status:"enviando"});jobId=id;
- const {data:decl}=await admin.from("declaracoes").select("numero,responsavel,responsavel_email,codigo_rastreio,status").eq("id",job.declaracao_id).maybeSingle();
+ const {data:decl}=await admin.from("declaracoes").select("*,destinatario:destinatarios(*),itens:declaracao_itens(*,brinde:brindes(*))").eq("id",job.declaracao_id).maybeSingle();
  if(!decl||decl.responsavel_email!==job.email||decl.codigo_rastreio!==job.codigo||["cancelado","devolvido"].includes(decl.status))throw new Error("Dados da declaração mudaram. Revise o aviso antes de enviar.");
+ const {data:senderConfig,error:configError}=await admin.from("configuracoes").select("*").eq("id",1).maybeSingle();
+ if(configError||(!decl.remetente_snapshot&&!senderConfig))throw new Error("Não foi possível carregar os dados do remetente para o PDF.");
+ const pdf=await buildDeclarationPdf(decl,senderConfig??{});
+ const filename="Declaracao_"+String(decl.numero).replace(/[^a-zA-Z0-9_.-]/g,"_").slice(0,80)+".pdf";
  const {data:account}=await admin.from("gmail_oauth_tokens").select("email,refresh_token").eq("id",1).maybeSingle();
  const clientId=Deno.env.get("GOOGLE_CLIENT_ID"),secret=Deno.env.get("GOOGLE_CLIENT_SECRET");
  if(!account?.refresh_token||!clientId||!secret)throw new Error("Remetente não configurado. Autorize o Gmail do sistema.");
@@ -41,7 +61,7 @@ Deno.serve(async(req:Request)=>{
  const credentials=await refresh.json();
  if(!refresh.ok||!credentials.access_token)throw new Error("A autorização do Gmail precisa ser renovada.");
  const text=renderTrackingMessage(job.mensagem,job.codigo,decl.numero,decl.responsavel);
- const raw=buildMessage(account.email,job.email,text);
+ const raw=buildMessage(account.email,job.email,text,{filename,bytes:pdf});
  providerAttempted=true;
  const response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",{method:"POST",headers:{Authorization:`Bearer ${credentials.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({raw})});
  if(!response.ok){if(response.status<500)providerAttempted=false;throw new Error("O provedor não confirmou o envio. Consulte o histórico.");}

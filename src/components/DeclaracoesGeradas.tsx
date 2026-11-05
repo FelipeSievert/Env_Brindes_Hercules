@@ -46,6 +46,7 @@ export default function DeclaracoesGeradas({
   const [filterRastreio, setFilterRastreio] = useState("todos");
   const [toDelete, setToDelete]     = useState<Declaracao | null>(null);
   const [deleting, setDeleting]     = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // Inline rastreio edit state
   const [editingRastreio, setEditingRastreio] = useState<string | null>(null);
@@ -56,8 +57,9 @@ export default function DeclaracoesGeradas({
 
   async function confirmDelete() {
     if (!toDelete) return;
-    setDeleting(true);
+    setDeleting(true); setDeleteError("");
     try { await onDelete(toDelete); setToDelete(null); }
+    catch (error) { setDeleteError(error instanceof Error ? error.message : "Não foi possível excluir a declaração."); }
     finally { setDeleting(false); }
   }
 
@@ -263,7 +265,7 @@ export default function DeclaracoesGeradas({
                       <button onClick={() => onView(dec)} className="p-1.5 rounded hover:bg-[#EEF2F7] text-[#64748B] hover:text-[#1A3A6B] transition-colors" title="Imprimir"><Printer size={15} /></button>
                       <button className="p-1.5 rounded hover:bg-[#EEF2F7] text-[#64748B] hover:text-[#1A3A6B] transition-colors" title="Baixar PDF"><Download size={15} /></button>
                       <button onClick={() => onDuplicate(dec)} className="p-1.5 rounded hover:bg-[#EEF2F7] text-[#64748B] hover:text-[#1A3A6B] transition-colors" title="Duplicar"><Copy size={15} /></button>
-                      <button onClick={() => setToDelete(dec)} className="p-1.5 rounded hover:bg-red-50 text-[#64748B] hover:text-[#D42B1E] transition-colors" title="Excluir"><Trash2 size={15} /></button>
+                      <button onClick={() => { setDeleteError(""); setToDelete(dec); }} className="p-1.5 rounded hover:bg-red-50 text-[#64748B] hover:text-[#D42B1E] transition-colors" title="Excluir"><Trash2 size={15} /></button>
                     </div>
                   </td>
                 </tr>
@@ -305,10 +307,12 @@ export default function DeclaracoesGeradas({
                   Tem certeza que deseja excluir a declaração{" "}
                   <span className="font-600 text-[#1E293B]">{toDelete.numero}</span> de{" "}
                   <span className="font-600 text-[#1E293B]">{toDelete.destinatario?.nome ?? 'Destinatário não informado'}</span>?
-                  Esta ação não pode ser desfeita.
+                  A declaração sairá da lista e o histórico será preservado.
+                  {["gerado", "informado"].includes(toDelete.status) ? " Os itens ainda não devolvidos serão repostos no estoque." : " O estoque não será alterado novamente."}
                 </p>
               </div>
             </div>
+            {deleteError && <p role="alert" className="px-6 pt-4 text-sm text-red-700">{deleteError}</p>}
             <div className="px-6 py-4 flex justify-end gap-2">
               <button onClick={() => setToDelete(null)} disabled={deleting}
                 className="px-4 py-2 text-sm font-['Inter'] text-[#64748B] disabled:opacity-50">

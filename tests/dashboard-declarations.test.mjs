@@ -157,3 +157,13 @@ test("Reading one or all notifications writes data_leitura and surfaces a failed
   failure = { message: "Acesso negado" };
   await assert.rejects(markNotificacaoLida("notice"), /Acesso negado/);
 });
+
+test("Deletion uses one atomic request and never retries stock changes in the browser", async () => {
+  const { deleteDeclaracao } = await import("../src/lib/db.ts");
+  const calls=[];
+  globalThis.declarationRpcTest=async(...args)=>{ calls.push(args);return {data:null,error:null}; };
+  await deleteDeclaracao({id:"declaration",itens:[{brindeId:"gift",quantidade:2}]});
+  assert.deepEqual(calls,[["delete_declaration",{p_id:"declaration"}]]);
+  globalThis.declarationRpcTest=async()=>({error:{message:"Não foi possível excluir"}});
+  await assert.rejects(deleteDeclaracao({id:"declaration",itens:[]}),/Não foi possível excluir/);
+});

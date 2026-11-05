@@ -189,6 +189,7 @@ export async function fetchDeclaracoes(): Promise<Declaracao[]> {
         destinatario:destinatarios(*),
         itens:declaracao_itens(*, brinde:brindes(*))
       `)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return (data ?? []).map(mapDeclaracao);
@@ -221,17 +222,8 @@ export async function insertDeclaracao(dec: Omit<Declaracao, "id">): Promise<Dec
 }
 
 export async function deleteDeclaracao(dec: Declaracao): Promise<void> {
-  return withRetry(async () => {
-    for (const item of dec.itens) {
-      const { error: stockError } = await supabase.rpc("increase_stock", {
-        p_brinde_id: item.brindeId,
-        p_quantidade: item.quantidade,
-      });
-      if (stockError) throw new Error(stockError.message);
-    }
-    const { error } = await supabase.from("declaracoes").delete().eq("id", dec.id);
-    if (error) throw new Error(error.message);
-  });
+  const { error } = await supabase.rpc("delete_declaration", { p_id: dec.id });
+  if (error) throw new Error(error.message);
 }
 
 export async function updateDeclaracaoStatus(id: string, status: string): Promise<void> {

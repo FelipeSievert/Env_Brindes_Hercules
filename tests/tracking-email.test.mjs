@@ -30,3 +30,16 @@ test('Already sent jobs never send a second message',async()=>{jobStatus='enviad
 test('A positive provider response is recorded before claiming success',async()=>{const response=await handler(request());assert.equal((await response.json()).status,'enviado');assert.equal(sent,1);assert.deepEqual(updates.map(u=>u.status),['enviando','enviado']);});
 test('Ambiguous provider failures are marked uncertain, preventing blind retries',async()=>{providerFailure=true;assert.equal((await handler(request())).status,400);assert.equal(updates.at(-1).status,'incerto');});
 test('MIME header injection is rejected and Unicode body survives encoding',()=>{assert.throws(()=>buildMessage('sender@example.invalid','person@example.invalid\r\nBcc: someone@example.invalid','text'));const decoded=Buffer.from(buildMessage('sender@example.invalid','person@example.invalid','Olá, ação!'),'base64url').toString();assert.ok(decoded.includes('Content-Transfer-Encoding: base64'));assert.equal(Buffer.from(decoded.split('\r\n\r\n')[1],'base64').toString(),'Olá, ação!');});
+
+
+test('Standard reply replaces the placeholder and includes the code only once', async()=>{
+ const { DEFAULT_TRACKING_MESSAGE, renderTrackingMessage } = await import('../supabase/functions/send-tracking-email/message.ts');
+ const text=renderTrackingMessage(DEFAULT_TRACKING_MESSAGE,job.codigo,'QA','Pessoa');
+ assert.ok(text.startsWith('Bom dia, tudo bem?\nSegue aqui o código de rastreio: '+job.codigo));
+ assert.equal(text.split(job.codigo).length-1,1);
+ assert.ok(!text.includes('(CÓDIGO)'));
+ assert.ok(text.includes('Declaração: QA'));
+ const custom=renderTrackingMessage('Seu pedido foi enviado.',job.codigo,'QA','Pessoa');
+ assert.ok(custom.includes('Seu pedido foi enviado.'));
+ assert.ok(custom.includes('Código de rastreio: '+job.codigo));
+});

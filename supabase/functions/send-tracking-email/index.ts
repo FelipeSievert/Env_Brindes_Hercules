@@ -1,3 +1,4 @@
+import { renderTrackingMessage } from "./message.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2.115.0/cors";
 import { createCorsPolicy } from "../manage-users/cors.ts";
@@ -39,7 +40,7 @@ Deno.serve(async(req:Request)=>{
  const refresh=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:clientId,client_secret:secret,refresh_token:account.refresh_token,grant_type:"refresh_token"})});
  const credentials=await refresh.json();
  if(!refresh.ok||!credentials.access_token)throw new Error("A autorização do Gmail precisa ser renovada.");
- const text=`Olá, ${decl.responsavel}!\n\n${job.mensagem}\n\nCódigo de rastreio: ${job.codigo}\nDeclaração: ${decl.numero}\n\nHércules — Envio de Brindes`;
+ const text=renderTrackingMessage(job.mensagem,job.codigo,decl.numero,decl.responsavel);
  const raw=buildMessage(account.email,job.email,text);
  providerAttempted=true;
  const response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",{method:"POST",headers:{Authorization:`Bearer ${credentials.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({raw})});

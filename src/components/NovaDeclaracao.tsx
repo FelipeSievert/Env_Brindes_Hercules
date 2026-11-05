@@ -1,3 +1,4 @@
+import { DEFAULT_TRACKING_MESSAGE } from "../lib/trackingMessage";
 import { useState } from "react";
 import { Search, Plus, Trash2, ChevronRight, ChevronLeft, FileText, AlertCircle, X, Tag } from "lucide-react";
 import { Destinatario, Brinde, Declaracao, ItemDeclaracao, Configuracoes } from "../types";
@@ -31,7 +32,7 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [responsavel, setResponsavel] = useState("");
-  const [mensagemRastreio,setMensagemRastreio]=useState("");
+  const [mensagemRastreio,setMensagemRastreio]=useState(DEFAULT_TRACKING_MESSAGE);
   const local = config.remetente.cidade;
 
   const allCategorias = Array.from(
@@ -116,6 +117,7 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
         setStep(1);
         setSelectedDests([]);
         setItems([]);
+        setMensagemRastreio(DEFAULT_TRACKING_MESSAGE);
       }
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Erro ao gerar declaração.");
@@ -423,7 +425,7 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
                 {responsaveis.map(r=><option key={r.id} value={r.id}>{r.nome} — {r.email}</option>)}
               </select>
               <p className="text-xs text-slate-500">Cadastre nomes e e-mails no menu Responsáveis.</p>
-              {responsavel && <label className="block pt-3 text-sm">Mensagem para acompanhar o rastreio<textarea value={mensagemRastreio} onChange={e=>setMensagemRastreio(e.target.value)} maxLength={3000} rows={4} placeholder="Escreva sua mensagem. O código de rastreio será incluído automaticamente." className="block w-full border rounded p-3" /></label>}
+              {responsavel && <label className="block pt-3 text-sm">Mensagem para acompanhar o rastreio<textarea value={mensagemRastreio} onChange={e=>setMensagemRastreio(e.target.value)} maxLength={3000} rows={4} placeholder="Escreva sua mensagem. (CÓDIGO) será substituído pelo rastreio informado." className="block w-full border rounded p-3" /></label>}
             </div>
 
             {stockWarnings.length > 0 && (

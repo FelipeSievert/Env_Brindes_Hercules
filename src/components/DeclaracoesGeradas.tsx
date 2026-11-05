@@ -1,3 +1,4 @@
+import { DEFAULT_TRACKING_MESSAGE } from "../lib/trackingMessage";
 import AuthorInfo, { MyRecordsFilter } from "./AuthorInfo";
 import { useAuth } from "../auth/AuthGate";
 import { useState } from "react";
@@ -61,7 +62,7 @@ export default function DeclaracoesGeradas({
   }
 
   function openRastreioEdit(dec: Declaracao) {
-    setMensagem(dec.mensagemRastreio ?? "");
+    setMensagem(dec.mensagemRastreio?.trim() ? dec.mensagemRastreio : DEFAULT_TRACKING_MESSAGE);
     setEditingRastreio(dec.id);
     setRastreioInput(dec.codigoRastreio ?? "");
   }

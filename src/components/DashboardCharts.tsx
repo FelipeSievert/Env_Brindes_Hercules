@@ -1,27 +1,41 @@
 import { useState } from "react";
 import type { Declaracao } from "../types";
-import { buildDashboardStats } from "../lib/dashboard";
+import { buildDashboardPeriodStats, dashboardRange } from "../lib/dashboard";
 
 export default function DashboardCharts({ declaracoes }: { declaracoes: Declaracao[] }) {
-  const [period, setPeriod] = useState(6);
-  const { months, statuses, gifts } = buildDashboardStats(declaracoes, period);
+  const [preset, setPreset] = useState("month");
+  const [range, setRange] = useState(() => dashboardRange("month"));
+  const { months, statuses, gifts, count, label, error } = buildDashboardPeriodStats(declaracoes, range.start, range.end);
+  const period = months.length;
+  function selectPreset(value: string) {
+    setPreset(value);
+    if (value !== "custom") setRange(dashboardRange(value as "month" | "6" | "12"));
+  }
   const maxMonth = Math.max(1, ...months.map(m => m.count));
-  const maxGift = Math.max(1, ...gifts.map(g => g.count));
+  const maxGift = Math.max(1, ...gifts.map(g => g.average));
   const periodTotal = months.reduce((sum, m) => sum + m.count, 0);
   const panel = "bg-white rounded-[6px] border border-[#DDE3EC] p-5 min-w-0";
 
   return (
     <section aria-label="Gráficos do Dashboard" className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div className={`${panel} xl:col-span-2`}>
+        <h2 className="font-semibold text-[#1E293B]">Período dos gráficos</h2>
+        <div className="flex flex-wrap items-end gap-4 mt-3">
+          <label className="text-xs text-[#64748B]">Consultar<select aria-label="Período dos gráficos" value={preset} onChange={event=>selectPreset(event.target.value)} className="block bg-white border rounded px-3 py-2 mt-1 text-sm text-[#1E293B]">
+            <option value="month">Este mês</option><option value="6">Últimos 6 meses</option><option value="12">Últimos 12 meses</option><option value="custom">Personalizado</option>
+          </select></label>
+          <label className="text-xs text-[#64748B]">Data inicial<input type="date" value={range.start} onChange={event=>{setPreset("custom");setRange(prev=>({...prev,start:event.target.value}));}} className="block border rounded px-3 py-2 mt-1 text-sm text-[#1E293B]"/></label>
+          <label className="text-xs text-[#64748B]">Data final<input type="date" value={range.end} onChange={event=>{setPreset("custom");setRange(prev=>({...prev,end:event.target.value}));}} className="block border rounded px-3 py-2 mt-1 text-sm text-[#1E293B]"/></label>
+        </div>
+        <p role={error?"alert":"status"} className={`text-xs mt-3 ${error?"text-red-700":"text-[#64748B]"}`}>{error || `${label} · ${count} declarações · pela data da declaração`}</p>
+      </div>
       <div className={panel}>
         <div className="flex flex-wrap justify-between gap-3 items-start">
           <div>
             <h2 className="font-['Outfit'] font-600 text-[#1E293B]">Declarações por mês</h2>
-            <p className="text-xs text-[#64748B] mt-1">{periodTotal} no período · pela data da declaração</p>
+            <p className="text-xs text-[#64748B] mt-1">{label} · {periodTotal} declarações</p>
           </div>
-          <select aria-label="Período do gráfico mensal" value={period} onChange={e => setPeriod(Number(e.target.value))} className="border border-[#DDE3EC] rounded px-2 py-1.5 text-xs text-[#475569] bg-white">
-            <option value={6}>Últimos 6 meses</option>
-            <option value={12}>Últimos 12 meses</option>
-          </select>
+
         </div>
         <div className="overflow-x-auto">
           <svg role="img" aria-label={months.map(m => `${m.label}: ${m.count}`).join("; ")} viewBox={`0 0 ${period * 64 + 32} 215`} className="w-full min-w-[320px] h-[225px] mt-3">
@@ -41,21 +55,22 @@ export default function DashboardCharts({ declaracoes }: { declaracoes: Declarac
       </div>
       <div className={panel}>
         <h2 className="font-['Outfit'] font-600 text-[#1E293B]">Situação das declarações</h2>
-        <p className="text-xs text-[#64748B] mt-1">Todos os registros · {declaracoes.length} declarações</p>
+        <p className="text-xs text-[#64748B] mt-1">{label} · {count} declarações</p>
         <div className="mt-6 space-y-5">
           {statuses.map(s => <div key={s.key}>
-            <div className="flex justify-between text-sm mb-1.5"><span className="text-[#475569]">{s.label}</span><span className="font-600 text-[#1E293B]">{s.count} <span className="font-normal text-xs text-[#64748B]">({declaracoes.length ? Math.round(s.count / declaracoes.length * 100) : 0}%)</span></span></div>
-            <div className="h-2 rounded-full bg-[#F1F4F8]" aria-hidden="true"><div className="h-full rounded-full" style={{ width: `${declaracoes.length ? s.count / declaracoes.length * 100 : 0}%`, backgroundColor: s.hex }} /></div>
+            <div className="flex justify-between text-sm mb-1.5"><span className="text-[#475569]">{s.label}</span><span className="font-600 text-[#1E293B]">{s.count} <span className="font-normal text-xs text-[#64748B]">({count ? Math.round(s.count / count * 100) : 0}%)</span></span></div>
+            <div className="h-2 rounded-full bg-[#F1F4F8]" aria-hidden="true"><div className="h-full rounded-full" style={{ width: `${count ? s.count / count * 100 : 0}%`, backgroundColor: s.hex }} /></div>
           </div>)}
         </div>
       </div>
       <div className={`${panel} xl:col-span-2`}>
-        <h2 className="font-['Outfit'] font-600 text-[#1E293B]">Brindes mais usados</h2>
-        <p className="text-xs text-[#64748B] mt-1">Quantidade de itens em declarações Gerado e Informado · até 6 brindes</p>
+        <h2 className="font-['Outfit'] font-600 text-[#1E293B]">Uso médio dos brindes</h2>
+        <p className="text-xs text-[#64748B] mt-1">{label} · Média por declaração em que o brinde apareceu · Gerado e Informado</p>
         {gifts.length ? <div className="grid sm:grid-cols-2 gap-x-8 gap-y-5 mt-6">{gifts.map(g => <div key={g.key}>
-          <div className="flex justify-between gap-4 text-sm mb-1.5"><span className="text-[#475569] break-words">{g.label}</span><span className="font-600 text-[#1E293B] shrink-0">{g.count.toLocaleString("pt-BR")}</span></div>
-          <div className="h-2 rounded-full bg-[#F1F4F8]" aria-hidden="true"><div className="h-full rounded-full bg-[#1A3A6B]" style={{ width: `${g.count / maxGift * 100}%` }} /></div>
-        </div>)}</div> : <p className="text-sm text-[#64748B] py-8">Nenhum item em declarações ativas.</p>}
+          <div className="flex justify-between gap-4 text-sm mb-1.5"><span className="text-[#475569] break-words">{g.label}</span><span className="font-600 text-[#1E293B] shrink-0">{g.average.toLocaleString("pt-BR",{maximumFractionDigits:2})} un./decl.</span></div>
+          <p className="text-xs text-[#64748B] mb-2">{g.count.toLocaleString("pt-BR")} unidades em {g.occurrences} {g.occurrences===1?"declaração":"declarações"}</p>
+          <div className="h-2 rounded-full bg-[#F1F4F8]" aria-hidden="true"><div className="h-full rounded-full bg-[#1A3A6B]" style={{ width: `${g.average / maxGift * 100}%` }} /></div>
+        </div>)}</div> : <p className="text-sm text-[#64748B] py-8">Nenhum item em declarações ativas neste período.</p>}
       </div>
     </section>
   );

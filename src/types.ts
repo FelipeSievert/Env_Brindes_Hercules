@@ -99,6 +99,7 @@ export interface Configuracoes {
   lembretes: {
     ativo: boolean;
     emailDestinatario: string;
+    emailAtivo?: boolean;
   };
 }
 

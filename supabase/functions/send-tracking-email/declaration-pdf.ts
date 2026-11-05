@@ -17,7 +17,7 @@ export async function buildDeclarationPdf(declaration: PdfDeclaration, sender: P
   if (!recipient.nome || !origin?.nome) throw new Error("Dados incompletos para gerar a declaração em PDF.");
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Declaração de Conteúdo - ${declaration.numero}`);
-  pdf.setAuthor("Hércules - Envio de Brindes");
+  pdf.setAuthor("Hercules - Envio de Brindes");
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const W = 595.28, H = 841.89, margin = 22.68, width = W - margin * 2;

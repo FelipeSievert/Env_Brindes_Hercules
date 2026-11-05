@@ -12,7 +12,7 @@ export interface SystemUser {
   role: SystemRole;
   status: SystemStatus;
 }
-type AuthValue = { user: SystemUser; signOut: () => Promise<void> };
+type AuthValue = { user: SystemUser; signOut: () => Promise<void>; refreshUser: () => Promise<void> };
 const AuthContext = createContext<AuthValue | null>(null);
 export function useAuth(): AuthValue {
   const context = useContext(AuthContext);
@@ -23,7 +23,7 @@ export function useAuth(): AuthValue {
 function AuthCard({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return <div className="min-h-screen bg-[#F1F4F8] flex items-center justify-center p-4">
     <section className="w-full max-w-md bg-white border border-[#DDE3EC] rounded-lg shadow-sm p-8 space-y-5">
-      <div><div className="text-[#1A3A6B] font-bold text-xl tracking-wide">HÉRCULES</div>
+      <div><div className="text-[#1A3A6B] font-bold text-xl tracking-wide">HERCULES</div>
         <p className="text-[#64748B] text-xs uppercase tracking-widest">Envio de Brindes</p></div>
       <div><h1 className="text-xl font-semibold text-[#1E293B]">{title}</h1>
         <p className="text-sm text-[#64748B] mt-1">{description}</p></div>
@@ -120,6 +120,14 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [session?.user.id, reload]);
 
+  async function refreshUser() {
+    const { data: auth, error: authError } = await supabase.auth.getUser();
+    if (authError || !auth.user) throw new Error("Sua sessão expirou. Entre novamente.");
+    const { data, error } = await supabase.from("app_users").select("id,full_name,email,role,status").eq("id",auth.user.id).single();
+    if (error || !data) throw new Error("Não foi possível atualizar os dados da conta.");
+    setUser(data as SystemUser);
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setSession(null); setUser(null); setRecovering(false); setError("");
@@ -159,5 +167,5 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     description={error || "Esta conta não possui acesso ativo. Procure o administrador."}>
     <button className={buttonClass} onClick={signOut}>Voltar ao login</button>
   </AuthCard>;
-  return <AuthContext.Provider value={{ user, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, signOut, refreshUser }}>{children}</AuthContext.Provider>;
 }

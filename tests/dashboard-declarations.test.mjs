@@ -167,3 +167,36 @@ test("Deletion uses one atomic request and never retries stock changes in the br
   globalThis.declarationRpcTest=async()=>({error:{message:"Não foi possível excluir"}});
   await assert.rejects(deleteDeclaracao({id:"declaration",itens:[]}),/Não foi possível excluir/);
 });
+
+test("All dashboard graphs share inclusive document dates and averages use only appearances", async () => {
+  const { buildDashboardPeriodStats } = await import("../src/lib/dashboard.ts");
+  const documents=[dec("01/11/2026","gerado",5),dec("02/11/2026","informado",10),dec("05/11/2026","gerado",15),{...dec("04/11/2026","gerado"),itens:[]},dec("30/10/2026","gerado",100),dec("05/11/2026","devolvido",100)];
+  documents[0].itens=[{...documents[0].itens[0],quantidade:2},{...documents[0].itens[0],quantidade:3}];
+  const stats=buildDashboardPeriodStats(documents,"2026-11-01","2026-11-05");
+  assert.equal(stats.count,5);
+  assert.equal(stats.months[0].count,5);
+  assert.equal(stats.gifts[0].count,30);
+  assert.equal(stats.gifts[0].occurrences,3);
+  assert.equal(stats.gifts[0].average,10);
+  assert.equal(buildDashboardPeriodStats(documents,"2026-11-06","2026-11-01").count,0);
+  assert.ok(buildDashboardPeriodStats(documents,"","2026-11-05").error);
+});
+
+test("Dashboard defaults use the current month in Sao Paulo", async () => {
+  const { dashboardRange }=await import("../src/lib/dashboard.ts");
+  assert.deepEqual(dashboardRange("month",new Date("2026-11-01T01:00:00Z")),{start:"2026-10-01",end:"2026-10-31"});
+  assert.deepEqual(dashboardRange("6",new Date("2026-11-05T15:00:00Z")),{start:"2026-06-01",end:"2026-11-05"});
+});
+
+test("Company settings persist boolean email flags and the separate destination address", async () => {
+  const { fetchConfig,saveConfig }=await import("../src/lib/db.ts");
+  let saved;
+  globalThis.notificationDbTest=table=>{
+    assert.equal(table,"configuracoes");
+    const query={select(){return this;},eq(){return this;},async maybeSingle(){return{data:{nome:"HERCULES",lembretes_ativos:true,email_lembretes:true,email_destino:"team@example.com"},error:null};},async upsert(value){saved=value;return{error:null};}};
+    return query;
+  };
+  const config=await fetchConfig();
+  assert.equal(config.lembretes.emailDestinatario,"team@example.com");assert.equal(config.lembretes.emailAtivo,true);
+  await saveConfig(config);assert.equal(saved.email_lembretes,true);assert.equal(saved.email_destino,"team@example.com");
+});

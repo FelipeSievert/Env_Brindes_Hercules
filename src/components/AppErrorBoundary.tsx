@@ -20,7 +20,7 @@ export default class AppErrorBoundary extends Component<Props, State> {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F1F4F8] p-6">
         <section role="alert" className="w-full max-w-md rounded-lg border border-[#DDE3EC] bg-white p-7 shadow-sm space-y-4">
-          <p className="font-bold text-[#1A3A6B]">HÉRCULES · ENVIO DE BRINDES</p>
+          <p className="font-bold text-[#1A3A6B]">HERCULES · ENVIO DE BRINDES</p>
           <h1 className="text-xl font-semibold text-[#1E293B]">Não foi possível abrir esta tela</h1>
           <p className="text-sm text-[#64748B]">
             Ocorreu um erro ao exibir o sistema. Nenhum registro foi alterado por esta mensagem.

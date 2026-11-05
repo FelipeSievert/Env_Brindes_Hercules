@@ -153,7 +153,8 @@ export async function fetchConfig(): Promise<Configuracoes | null> {
       },
       lembretes: {
         ativo: data.lembretes_ativos !== false,
-        emailDestinatario: String(data.email_lembretes ?? ""),
+        emailDestinatario: String(data.email_destino ?? ""),
+        emailAtivo: Boolean(data.email_lembretes),
       },
     };
   });
@@ -172,7 +173,8 @@ export async function saveConfig(c: Configuracoes): Promise<void> {
       uf: c.remetente.uf,
       cep: c.remetente.cep,
       lembretes_ativos: c.lembretes.ativo,
-      email_lembretes: c.lembretes.emailDestinatario,
+      email_lembretes: Boolean(c.lembretes.emailAtivo),
+      email_destino: c.lembretes.emailDestinatario,
     });
     if (error) throw new Error(error.message);
   });

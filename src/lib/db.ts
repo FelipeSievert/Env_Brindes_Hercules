@@ -322,7 +322,7 @@ export async function fetchNotificacoes(): Promise<Notificacao[]> {
 
 export async function markNotificacaoLida(id: string): Promise<void> {
   return withRetry(async () => {
-    const { error } = await supabase.from("notificacoes").update({ lida: true }).eq("id", id);
+    const { error } = await supabase.from("notificacoes").update({ data_leitura: new Date().toISOString() }).eq("id", id).select("id").single();
     if (error) throw new Error(error.message);
   });
 }
@@ -330,7 +330,7 @@ export async function markNotificacaoLida(id: string): Promise<void> {
 export async function markAllNotificacoesLidas(): Promise<void> {
   return withRetry(async () => {
     const { error } = await supabase
-      .from("notificacoes").update({ lida: true }).eq("lida", false);
+      .from("notificacoes").update({ data_leitura: new Date().toISOString() }).is("data_leitura", null);
     if (error) throw new Error(error.message);
   });
 }
@@ -343,13 +343,13 @@ export async function triggerRastreioCheck(): Promise<number> {
   });
 }
 
-function mapNotificacao(row: Record<string, unknown>): Notificacao {
+export function mapNotificacao(row: Record<string, unknown>): Notificacao {
   return {
     id: String(row.id),
     declaracaoId: String(row.declaracao_id ?? ""),
-    tipo: String(row.tipo ?? ""),
-    mensagem: String(row.mensagem ?? ""),
-    lida: Boolean(row.lida),
+    tipo: String(row.tipo_notificacao ?? ""),
+    mensagem: String(row.conteudo ?? "").trim() || "Há uma atualização nesta declaração.",
+    lida: Boolean(row.data_leitura),
     createdAt: String(row.created_at ?? ""),
   };
 }

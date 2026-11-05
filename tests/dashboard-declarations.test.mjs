@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 registerHooks({
   resolve(specifier, context, next) {
     if (specifier === "./supabase" && context.parentURL?.endsWith("/src/lib/db.ts")) {
-      return { url: "data:text/javascript,export const supabase = { rpc: (...args) => globalThis.declarationRpcTest(...args) };", shortCircuit: true };
+      return { url: "data:text/javascript,export const supabase = { rpc: (...args) => globalThis.declarationRpcTest(...args), from: (...args) => globalThis.notificationDbTest(...args) };", shortCircuit: true };
     }
     if (specifier.startsWith(".") && !/\.[a-z]+$/.test(specifier)) {
       for (const extension of [".ts", ".tsx"]) {
@@ -118,4 +118,37 @@ test("Authorship displays the original creator and a separate editor, with safe 
   const mappedRecipient = mapDestinatario({ ...baseRecipient, created_by: "creator", created_by_name: "Original" });
   assert.equal(mappedRecipient.createdBy, "creator");
   assert.equal(toDbDestinatario(mappedRecipient).created_by, undefined, "Client must never send trusted actor fields");
+});
+
+
+test("Notifications use stored content and read timestamps instead of obsolete fields", async () => {
+  const { mapNotificacao } = await import("../src/lib/db.ts");
+  const row = { id: "notice", declaracao_id: "declaration", tipo_notificacao: "lembrete_rastreio", conteudo: "Código de rastreio pendente", created_at: "2026-11-05T10:00:00Z", data_leitura: null };
+  assert.equal(mapNotificacao(row).mensagem, "Código de rastreio pendente");
+  assert.equal(mapNotificacao(row).tipo, "lembrete_rastreio");
+  assert.equal(mapNotificacao(row).lida, false);
+  assert.equal(mapNotificacao({ ...row, data_leitura: "2026-11-05T11:00:00Z" }).lida, true);
+  assert.ok(mapNotificacao({ ...row, conteudo: " " }).mensagem.length > 0);
+});
+
+test("Reading one or all notifications writes data_leitura and surfaces a failed save", async () => {
+  const { markNotificacaoLida, markAllNotificacoesLidas } = await import("../src/lib/db.ts");
+  const calls = [];
+  let failure = null;
+  globalThis.notificationDbTest = table => {
+    assert.equal(table, "notificacoes");
+    const result = { error: failure, data: { id: "notice" } };
+    const query = {
+      update(patch) { calls.push(patch); return this; },
+      eq(column, value) { assert.equal(column, "id"); assert.equal(value, "notice"); return this; },
+      select() { return this; }, single() { return Promise.resolve(result); },
+      is(column, value) { assert.equal(column, "data_leitura"); assert.equal(value, null); return Promise.resolve(result); }
+    };
+    return query;
+  };
+  await markNotificacaoLida("notice"); await markAllNotificacoesLidas();
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(patch => !Number.isNaN(Date.parse(patch.data_leitura)) && !("lida" in patch)));
+  failure = { message: "Acesso negado" };
+  await assert.rejects(markNotificacaoLida("notice"), /Acesso negado/);
 });

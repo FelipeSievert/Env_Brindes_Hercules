@@ -23,28 +23,32 @@ function timeAgo(iso: string): string {
 export default function NotificacoesPanel({ notificacoes, onNavigateToDeclaracao, onUpdate }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const naoLidas = notificacoes.filter((n) => !n.lida);
 
-  async function marcarLida(id: string) {
-    await db.markNotificacaoLida(id);
-    onUpdate(notificacoes.map((n) => (n.id === id ? { ...n, lida: true } : n)));
-  }
-
   async function marcarTodasLidas() {
-    setLoading(true);
+    setLoading(true); setError("");
     try {
       await db.markAllNotificacoesLidas();
       onUpdate(notificacoes.map((n) => ({ ...n, lida: true })));
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Não foi possível marcar as notificações como lidas.");
+    } finally { setLoading(false); }
   }
 
-  function handleClickNotificacao(n: Notificacao) {
-    marcarLida(n.id);
-    onNavigateToDeclaracao(n.declaracaoId);
-    setOpen(false);
+  async function handleClickNotificacao(n: Notificacao) {
+    setLoading(true); setError("");
+    try {
+      if (!n.lida) {
+        await db.markNotificacaoLida(n.id);
+        onUpdate(notificacoes.map((row) => row.id === n.id ? { ...row, lida: true } : row));
+      }
+      onNavigateToDeclaracao(n.declaracaoId);
+      setOpen(false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Não foi possível marcar a notificação como lida.");
+    } finally { setLoading(false); }
   }
 
   return (
@@ -56,6 +60,8 @@ export default function NotificacoesPanel({ notificacoes, onNavigateToDeclaracao
           open ? "bg-white/20 text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
         }`}
         title="Notificações"
+        aria-label="Notificações"
+        aria-expanded={open}
       >
         <Bell size={18} />
         {naoLidas.length > 0 && (
@@ -96,6 +102,7 @@ export default function NotificacoesPanel({ notificacoes, onNavigateToDeclaracao
                   </button>
                 )}
                 <button
+                  aria-label="Fechar notificações"
                   onClick={() => setOpen(false)}
                   className="p-1 rounded text-[#64748B] hover:text-[#1E293B] hover:bg-[#EEF2F7] transition-colors"
                 >
@@ -104,6 +111,7 @@ export default function NotificacoesPanel({ notificacoes, onNavigateToDeclaracao
               </div>
             </div>
 
+            {error && <p role="alert" className="px-4 py-3 text-xs text-red-700 bg-red-50">{error}</p>}
             {/* List */}
             <div className="max-h-[420px] overflow-y-auto divide-y divide-[#DDE3EC]/60">
               {notificacoes.length === 0 ? (
@@ -120,18 +128,19 @@ export default function NotificacoesPanel({ notificacoes, onNavigateToDeclaracao
                 notificacoes.map((n) => (
                   <button
                     key={n.id}
+                    disabled={loading}
                     onClick={() => handleClickNotificacao(n)}
                     className={`w-full text-left px-4 py-3.5 flex items-start gap-3 hover:bg-[#F8FAFC] transition-colors ${
                       !n.lida ? "bg-[#FEF9EC]" : ""
                     }`}
                   >
                     <div className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                      n.tipo === "rastreio_pendente" ? "bg-red-100 text-red-600" : "bg-[#EEF2F7] text-[#1A3A6B]"
+                      ["rastreio_pendente", "lembrete_rastreio"].includes(n.tipo) ? "bg-red-100 text-red-600" : "bg-[#EEF2F7] text-[#1A3A6B]"
                     }`}>
                       <PackageX size={14} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-['Inter'] leading-snug ${!n.lida ? "font-600 text-[#1E293B]" : "text-[#64748B]"}`}>
+                      <p className={`text-xs font-['Inter'] leading-snug whitespace-pre-line ${!n.lida ? "font-600 text-[#1E293B]" : "text-[#64748B]"}`}>
                         {n.mensagem}
                       </p>
                       <p className="text-[10px] text-[#94A3B8] font-['Inter'] mt-1">

@@ -6,7 +6,6 @@ export function toDbDestinatario(d: Omit<Destinatario, "id"> | Destinatario) {
     nome: d.nome, cpf_cnpj: d.cpfCnpj, cep: d.cep, endereco: d.endereco,
     numero: d.numero, complemento: d.complemento ?? "", bairro: d.bairro,
     cidade: d.cidade, uf: d.uf, categorias: d.categorias ?? [],
-    aos_cuidados: (d.aosCuidados ?? "").trim(),
   };
 }
 
@@ -33,4 +32,9 @@ export function declarationRecipient(row: Record<string, unknown>): Destinatario
   }
   // Older documents without a snapshot must not acquire a newly edited A/C.
   return mapDestinatario({ ...current, aos_cuidados: "" });
+}
+
+/** A/C is filled separately for each new declaration, never inherited from a client. */
+export function recipientForDeclaration(recipient: Destinatario): Destinatario {
+  return { ...recipient, aosCuidados: "" };
 }

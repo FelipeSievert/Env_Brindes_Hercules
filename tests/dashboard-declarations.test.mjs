@@ -36,10 +36,15 @@ test("Legacy values map to database statuses; invalid and inherited names are re
   for (const input of ["constructor", "toString", "inválido"]) assert.throws(() => normalizeDeclarationStatus(input));
 });
 
-test("Optional A/C survives recipient writes and reads, trimmed", () => {
-  const recipient = mapDestinatario({ ...baseRecipient, aos_cuidados: " Setor de compras " });
-  assert.equal(toDbDestinatario(recipient).aos_cuidados, "Setor de compras");
-  assert.equal(mapDestinatario(baseRecipient).aosCuidados, "");
+test("A/C is saved in declarations, never in the client registration", async () => {
+  const { recipientForDeclaration } = await import("../src/lib/recipient.ts");
+  const recipient = mapDestinatario({ ...baseRecipient, aos_cuidados: "Antigo contato" });
+  assert.equal(toDbDestinatario(recipient).aos_cuidados, undefined);
+  const draft = recipientForDeclaration(recipient);
+  assert.equal(draft.aosCuidados, "");
+  draft.aosCuidados = "Contato desta declaração";
+  assert.equal(recipient.aosCuidados, "Antigo contato");
+  assert.equal(recipientForDeclaration(recipient).aosCuidados, "");
 });
 
 test("A/C belongs to the saved document and never leaks from later recipient changes", () => {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Search, Plus, Trash2, ChevronRight, ChevronLeft, FileText, AlertCircle, X, Tag } from "lucide-react";
 import { Destinatario, Brinde, Declaracao, ItemDeclaracao, Configuracoes } from "../types";
 import * as db from "../lib/db";
+import { recipientForDeclaration } from "../lib/recipient";
 
 interface Props {
   responsaveis: import("../types").Responsavel[];
@@ -51,7 +52,7 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
   );
 
   function addDest(d: Destinatario) {
-    setSelectedDests((prev) => [...prev, { ...d }]);
+    setSelectedDests((prev) => [...prev, recipientForDeclaration(d)]);
     setDestSearch("");
   }
 
@@ -182,7 +183,7 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
         {step === 2 && (
           <div className="p-6 space-y-4">
             <h2 className="font-['Outfit'] font-600 text-[#1E293B] border-b border-[#DDE3EC] pb-3">Etapa 2 — Destinatário(s)</h2>
-            <p className="text-xs text-[#64748B] font-['Inter']">Selecione um ou mais destinatários. Uma declaração será gerada para cada um com os mesmos itens.</p>
+            <p className="text-xs text-[#64748B] font-['Inter']">Selecione um ou mais destinatários. Uma declaração será gerada para cada um com os mesmos itens. Preencha o A/C no destinatário selecionado, se necessário.</p>
 
             {/* Category filter */}
             {allCategorias.length > 0 && (
@@ -255,7 +256,7 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
                       <label className="block mt-3 text-xs text-[#475569]" htmlFor={`ac-${d.id}`}>A/C — Aos cuidados de (opcional)</label>
                       <input id={`ac-${d.id}`} maxLength={160} value={d.aosCuidados ?? ""}
                         onChange={e => setSelectedDests(prev => prev.map(dest => dest.id === d.id ? { ...dest, aosCuidados: e.target.value } : dest))}
-                        placeholder="Nome da pessoa ou setor" className="mt-1 w-full max-w-lg bg-white border border-[#DDE3EC] rounded px-3 py-2 text-sm text-[#1E293B]" />
+                        placeholder="Nome da pessoa ou setor para esta declaração" className="mt-1 w-full max-w-lg bg-white border border-[#DDE3EC] rounded px-3 py-2 text-sm text-[#1E293B]" />
                     </div>
                     <button aria-label={`Remover ${d.nome}`} onClick={() => removeDest(d.id)} className="text-[#64748B] hover:text-[#D42B1E] transition-colors"><X size={15} /></button>
                   </div>

@@ -30,12 +30,12 @@ begin
   insert into public.brindes (nome,quantidade,peso_unitario,valor)
   values ('__qa_declaration_gift', 20, 0.25, 5) returning id into gift_id;
   base := jsonb_build_object('numero','__qa_'||gen_random_uuid(), 'destinatario_id',dest_id,'data','04/11/2026', 'status','gerado', 'aos_cuidados','  Compras  ', 'itens', jsonb_build_array(jsonb_build_object('brinde_id',gift_id,'quantidade',2)));
-  saved := public.create_declaracoes(jsonb_build_array(base, base || jsonb_build_object('numero','__qa_'||gen_random_uuid(),'aos_cuidados','')));
-  if jsonb_array_length(saved) <> 2 or saved->0->>'status' <> 'gerado' then raise exception 'Batch did not save'; end if;
+  saved := public.create_declaracoes(jsonb_build_array(base, base || jsonb_build_object('numero','__qa_'||gen_random_uuid(),'aos_cuidados',''), (base - 'aos_cuidados') || jsonb_build_object('numero','__qa_'||gen_random_uuid())));
+  if jsonb_array_length(saved) <> 3 or saved->0->>'status' <> 'gerado' then raise exception 'Batch did not save'; end if;
   if (saved->0->>'total_itens')::integer <> 2 or (saved->0->>'peso_total')::numeric <> 0.5 then raise exception 'Totals must come from real items'; end if;
-  if saved->0->'destinatario_snapshot'->>'aos_cuidados' <> 'Compras' or saved->1->'destinatario_snapshot'->>'aos_cuidados' <> '' then raise exception 'Optional A/C was lost'; end if;
+  if saved->0->'destinatario_snapshot'->>'aos_cuidados' <> 'Compras' or saved->1->'destinatario_snapshot'->>'aos_cuidados' <> '' or saved->2->'destinatario_snapshot'->>'aos_cuidados' <> '' then raise exception 'Optional A/C was lost'; end if;
   if saved->0->'itens'->0->'brinde_snapshot'->>'nome' <> '__qa_declaration_gift' then raise exception 'Gift snapshot was lost'; end if;
-  if (select quantidade from public.brindes where id=gift_id) <> 16 then raise exception 'Stock must decrease exactly once'; end if;
+  if (select quantidade from public.brindes where id=gift_id) <> 14 then raise exception 'Stock must decrease exactly once'; end if;
   update public.destinatarios set aos_cuidados='Outro contato' where id=dest_id;
   if (select destinatario_snapshot->>'aos_cuidados' from public.declaracoes where id=(saved->0->>'id')::uuid) <> 'Compras' then raise exception 'Historical A/C changed'; end if;
 

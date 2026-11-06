@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { mapAuthorship } from "./authorship";
-import { Destinatario, Brinde, Declaracao, Configuracoes, Notificacao, Responsavel } from "../types";
+import { Destinatario, Brinde, Declaracao, Configuracoes, Notificacao, Responsavel, SaidaAvulsa } from "../types";
 import { toDbDestinatario, mapDestinatario, declarationRecipient } from "./recipient";
 import { normalizeDeclarationStatus } from "./declarationStatus";
 
@@ -355,4 +355,44 @@ export async function fetchStockMovements(giftId: string) {
   if (error) throw new Error(error.message);
   return (data ?? []).map(row => ({ id: String(row.id), tipo: String(row.tipo), quantidade: Number(row.quantidade),
     saldo: Number(row.saldo_apos), motivo: String(row.motivo), ...mapAuthorship(row) }));
+}
+
+// ─── SAÍDAS AVULSAS ───────────────────────────────────────────────────────────
+
+export async function fetchSaidasAvulsas(): Promise<SaidaAvulsa[]> {
+  const { data, error } = await supabase
+    .from("saidas_avulsas")
+    .select("id,destino,motivo,created_at,created_by,created_by_name,movimentos:estoque_movimentacoes(brinde_id,brinde_nome,quantidade,saldo_apos)")
+    .order("created_at", { ascending: false }).limit(100);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(row => ({
+    id: String(row.id),
+    destino: String(row.destino),
+    motivo: String(row.motivo),
+    createdAt: String(row.created_at),
+    createdBy: String(row.created_by ?? ""),
+    createdByName: String(row.created_by_name ?? ""),
+    itens: (row.movimentos ?? []).map((movement: Record<string, unknown>) => ({
+      brindeId: String(movement.brinde_id ?? ""),
+      nome: String(movement.brinde_nome ?? ""),
+      quantidade: Math.abs(Number(movement.quantidade ?? 0)),
+      saldoApos: Number(movement.saldo_apos ?? 0),
+    })),
+  }));
+}
+
+/** Inserção, baixa e histórico ocorrem na mesma transação do Supabase.
+ * Não repetir automaticamente após erros de rede: a operação pode ter sido gravada.
+ */
+export async function insertSaidaAvulsa(input: {
+  destino: string;
+  motivo: string;
+  itens: { brindeId: string; quantidade: number }[];
+}): Promise<void> {
+  const { error } = await supabase.from("saidas_avulsas").insert({
+    destino: input.destino.trim(),
+    motivo: input.motivo.trim(),
+    itens: input.itens.map(item => ({ brinde_id: item.brindeId, quantidade: item.quantidade })),
+  });
+  if (error) throw new Error(error.message);
 }

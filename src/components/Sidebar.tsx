@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Gift, FilePlus, FileText,
-  Settings, Zap, FileUp, UserCog, LogOut,
+  Settings, Zap, FileUp, UserCog, LogOut, ArrowDownToLine,
 } from "lucide-react";
 import { Page, Notificacao } from "../types";
 import NotificacoesPanel from "./NotificacoesPanel";
@@ -20,6 +20,7 @@ const navItems: { label: string; page: Page; icon: React.ReactNode }[] = [
   { label: "Responsáveis", page: "responsaveis", icon: <Users size={18} /> },
   { label: "Destinatários",      page: "destinatarios",   icon: <Users size={18} /> },
   { label: "Brindes e Estoque",  page: "brindes",         icon: <Gift size={18} /> },
+  { label: "Saída de Brindes", page: "saidas-avulsas", icon: <ArrowDownToLine size={18} /> },
   { label: "Nova Declaração",    page: "nova-declaracao", icon: <FilePlus size={18} /> },
   { label: "Declarações Geradas",page: "declaracoes",     icon: <FileText size={18} /> },
   { label: "Importar Word",      page: "importar-word",   icon: <FileUp size={18} /> },

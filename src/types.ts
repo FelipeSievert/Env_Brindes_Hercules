@@ -3,6 +3,7 @@ export type Page =
   | "dashboard"
   | "destinatarios"
   | "brindes"
+  | "saidas-avulsas"
   | "nova-declaracao"
   | "declaracoes"
   | "configuracoes"
@@ -41,6 +42,13 @@ export interface Brinde extends Authorship {
   quantidade: number;
   pesoUnitario: number;
   valor: number;
+}
+
+export interface SaidaAvulsa extends Authorship {
+  id: string;
+  destino: string;
+  motivo: string;
+  itens: { brindeId: string; nome: string; quantidade: number; saldoApos: number }[];
 }
 
 export interface ItemDeclaracao {

@@ -7,6 +7,7 @@ import Responsaveis from "./components/Responsaveis";
 import Dashboard from "./components/Dashboard";
 import Destinatarios from "./components/Destinatarios";
 import BrindesEstoque from "./components/BrindesEstoque";
+import SaidasAvulsas from "./components/SaidasAvulsas";
 import NovaDeclaracao from "./components/NovaDeclaracao";
 import DeclaracaoPreview from "./components/DeclaracaoPreview";
 import DeclaracoesGeradas from "./components/DeclaracoesGeradas";
@@ -225,6 +226,12 @@ export default function App() {
               await db.deleteBrinde(id);
               setBrindes((prev) => prev.filter((x) => x.id !== id));
             }}
+          />
+        )}
+        {page === "saidas-avulsas" && (
+          <SaidasAvulsas
+            brindes={brindes}
+            onRegistered={async () => setBrindes(await db.fetchBrindes())}
           />
         )}
         {page === "nova-declaracao" && (

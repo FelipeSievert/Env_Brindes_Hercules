@@ -25,6 +25,7 @@ const originalDeno = globalThis.Deno;
 let actor;
 let requests;
 let authValid;
+let targetRole;
 
 function json(payload, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json" } });
@@ -44,6 +45,7 @@ globalThis.fetch = async (input, init = {}) => {
     if (method === "POST" || method === "PATCH") return new Response(null, { status: 204 });
     if (url.searchParams.has("order")) return json([profile]);
     if (url.searchParams.has("email")) return json(null);
+    if (url.searchParams.get("id") === "eq." + invitedId) return json({ role: targetRole });
     return json(actor);
   }
   assert.fail(`Unexpected backend route: ${method} ${url.pathname}`);
@@ -70,7 +72,7 @@ function request({ origin = preview, method = "POST", token = "test-session", bo
   return new Request("https://function.example.com/manage-users", { method, headers, ...(method === "POST" ? { body: JSON.stringify(body) } : {}) });
 }
 
-beforeEach(() => { actor = { ...profile }; requests = []; authValid = true; });
+beforeEach(() => { actor = { ...profile }; requests = []; authValid = true; targetRole = "operator"; });
 after(() => { globalThis.fetch = originalFetch; globalThis.Deno = originalDeno; hooks.deregister(); });
 
 test("normalizes explicit Preview origins and includes APP_URL without accepting wildcards/lookalikes", () => {
@@ -210,4 +212,32 @@ test("Preview entrypoint registers the same protected handler", async () => {
     if (response.status !== 204 || response.headers.get('Access-Control-Allow-Origin') !== ${JSON.stringify(preview)}) process.exit(1);
   `], { cwd: new URL("..", import.meta.url), encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("Master retains administrative listing and invitation permissions", async () => {
+  actor.role = "master";
+  const list = await handler(request());
+  assert.equal(list.status, 200);
+  const invite = await handler(request({ body: { action: "invite", name: "Teste Master", email: "new@example.com" } }));
+  assert.equal(invite.status, 200);
+  assert.ok(requests.some(r => r.url.pathname === "/auth/v1/invite"));
+});
+
+test("Administrators cannot block or demote the Master account", async () => {
+  targetRole = "master";
+  for (const body of [
+    { action: "setStatus", id: invitedId, status: "blocked" },
+    { action: "setRole", id: invitedId, role: "operator" },
+  ]) {
+    const response = await handler(request({ body }));
+    assert.equal(response.status, 403);
+  }
+  assert.equal(requests.some(r => r.method === "PATCH"), false);
+});
+
+test("No user may assign Master via role update", async () => {
+  actor.role = "master";
+  const response = await handler(request({ body: { action: "setRole", id: invitedId, role: "master" } }));
+  assert.equal(response.status, 400);
+  assert.equal(requests.some(r => r.method === "PATCH"), false);
 });

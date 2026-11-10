@@ -42,7 +42,7 @@ export default function Sidebar({
           <div>
             <p className="text-white font-['Outfit'] font-700 text-sm leading-tight">HERCULES</p>
             <p className="text-white/50 text-[10px] font-['Inter'] uppercase tracking-widest leading-tight">
-              Motores Elétricos
+              Energia em Movimento
             </p>
           </div>
         </div>

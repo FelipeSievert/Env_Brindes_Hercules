@@ -235,8 +235,8 @@ export async function updateDeclaracaoStatus(id: string, status: string): Promis
   });
 }
 
-export async function updateCodigoRastreio(id: string, codigo: string, mensagem = ""): Promise<string> {
-  const {data,error}=await supabase.rpc("save_tracking_notification",{p_id:id,p_codigo:codigo,p_mensagem:mensagem});
+export async function updateCodigoRastreio(id: string, codigo: string, mensagem = "", emailCopia = ""): Promise<string> {
+  const {data,error}=await supabase.rpc("save_tracking_notification",{p_id:id,p_codigo:codigo,p_mensagem:mensagem,p_email_copia:emailCopia.trim().toLowerCase()});
   if(error) throw new Error(error.message);
   if(!data.email_id) return "Rastreio salvo. Esta declaração não possui e-mail de responsável.";
   return sendTrackingEmail(data.email_id);
@@ -255,7 +255,7 @@ export async function saveResponsavel(row: {id?:string;nome:string;email:string}
  if(result.error) throw new Error(result.error.code==="23505"?"Este e-mail já está cadastrado.":result.error.message);
 }
 export async function fetchTrackingEmails() {
- const {data,error}=await supabase.from("rastreio_emails").select("id,email,codigo,status,erro,declaracao_id").order("created_at",{ascending:false}).limit(100);
+ const {data,error}=await supabase.from("rastreio_emails").select("id,email,email_copia,codigo,status,erro,declaracao_id").order("created_at",{ascending:false}).limit(100);
  if(error) throw new Error(error.message);return data??[];
 }
 
@@ -292,6 +292,7 @@ function mapDeclaracao(row: Record<string, unknown>): Declaracao {
     responsavel: row.responsavel ? String(row.responsavel) : undefined,
     responsavelId: row.responsavel_id ? String(row.responsavel_id) : undefined,
     responsavelEmail: String(row.responsavel_email ?? ""),
+    emailCopia: String(row.email_copia ?? ""),
     mensagemRastreio: String(row.mensagem_rastreio ?? ""),
     codigoRastreio: String(row.codigo_rastreio ?? ""),
     lembreteRastreioEnviado: Boolean(row.lembrete_rastreio_enviado),

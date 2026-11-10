@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
       return error ? reply({ error: "Não foi possível ativar o convite." }, 500, origin) : reply({ ok: true }, 200, origin);
     }
 
-    if (actor.role !== "admin" || actor.status !== "active") return reply({ error: "Somente administradores podem executar esta ação." }, 403, origin);
+    if (!["master", "admin"].includes(actor.role) || actor.status !== "active") return reply({ error: "Somente administradores e Master podem executar esta ação." }, 403, origin);
 
     if (request.action === "list") {
       const { data, error } = await admin.from("app_users")
@@ -87,11 +87,14 @@ Deno.serve(async (req: Request) => {
       const targetId = request.id ?? "";
       if (!/^[0-9a-f-]{36}$/i.test(targetId)) return reply({ error: "Usuário inválido." }, 400, origin);
       if (targetId === actor.id) return reply({ error: "Não é permitido modificar sua própria conta." }, 400, origin);
+      const { data: target, error: targetError } = await admin.from("app_users").select("role").eq("id", targetId).maybeSingle();
+      if (targetError || !target) return reply({ error: "Usuário não encontrado." }, 404, origin);
+      if (target.role === "master") return reply({ error: "A conta Master não pode ser bloqueada nem ter o perfil alterado." }, 403, origin);
       const change = request.action === "setRole"
         ? (request.role === "operator" || request.role === "admin" ? { role: request.role } : null)
         : (request.status === "active" || request.status === "blocked" ? { status: request.status } : null);
       if (!change) return reply({ error: "Valor inválido." }, 400, origin);
-      const { data, error } = await admin.from("app_users").update(change).eq("id", targetId).select("id").maybeSingle();
+      const { data, error } = await admin.from("app_users").update(change).eq("id", targetId).neq("role", "master").select("id").maybeSingle();
       if (error || !data) return reply({ error: "Não foi possível alterar esta conta." }, 400, origin);
       return reply({ ok: true }, 200, origin);
     }

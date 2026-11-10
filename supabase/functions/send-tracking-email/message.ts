@@ -8,5 +8,5 @@ export function renderTrackingMessage(message: string, code: string, declaration
     ? formattedTemplate
     : `Olá, ${responsible}!\n\n${formattedTemplate}\n\nCódigo de rastreio: ${code}`;
   const withRecipient = template.includes("(DESTINATÁRIO)") ? body : `${body}\nEnviado para: ${recipientName}`;
-  return `${withRecipient}\n\nDeclaração: ${declaration}\n\nHercules — Envio de Brindes`;
+  return withRecipient;
 }

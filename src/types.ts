@@ -77,6 +77,7 @@ export interface Declaracao extends Authorship {
   responsavel?: string;
   responsavelId?: string;
   responsavelEmail?: string;
+  emailCopia?: string;
   mensagemRastreio?: string;
   codigoRastreio?: string;
   lembreteRastreioEnviado?: boolean;

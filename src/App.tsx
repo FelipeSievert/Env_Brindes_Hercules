@@ -172,7 +172,7 @@ export default function App() {
     <div className="flex h-full bg-[#F1F4F8]">
       <Sidebar
         currentPage={page}
-        isAdmin={user.role === "admin"}
+        isAdmin={user.role === "master" || user.role === "admin"}
         onSignOut={() => { void signOut(); }}
         onNavigate={handleNavigate}
         notificacoes={notificacoes}
@@ -265,7 +265,7 @@ export default function App() {
             onImported={(updated) => setDestinatarios(updated)}
           />
         )}
-        {page === "usuarios" && user.role === "admin" && <AdministrarUsuarios />}
+        {page === "usuarios" && (user.role === "master" || user.role === "admin") && <AdministrarUsuarios />}
         {page === "configuracoes" && (
           <ConfiguracoesTela
             config={config}

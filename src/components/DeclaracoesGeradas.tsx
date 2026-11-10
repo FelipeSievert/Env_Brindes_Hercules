@@ -6,12 +6,13 @@ import {
   Eye, Printer, Download, Copy, Search, Trash2, AlertTriangle,
   PackageCheck, Clock, AlertCircle, X, Save, QrCode,
 } from "lucide-react";
-import { Declaracao, calcStatusRastreio, StatusRastreio } from "../types";
+import { Declaracao, Responsavel, calcStatusRastreio, StatusRastreio } from "../types";
 import * as db from "../lib/db";
 import { declarationStatuses } from "../lib/declarationStatus";
 
 interface Props {
   declaracoes: Declaracao[];
+  responsaveis: Responsavel[];
   onView: (dec: Declaracao) => void;
   onDuplicate: (dec: Declaracao) => void;
   onDelete: (dec: Declaracao) => Promise<void>;
@@ -37,7 +38,7 @@ function RastreioIndicator({ status }: { status: StatusRastreio }) {
 }
 
 export default function DeclaracoesGeradas({
-  declaracoes, onView, onDuplicate, onDelete, onUpdateRastreio,
+  declaracoes, responsaveis, onView, onDuplicate, onDelete, onUpdateRastreio,
 }: Props) {
   const { user } = useAuth();
   const [onlyMine, setOnlyMine] = useState(false);
@@ -66,7 +67,12 @@ export default function DeclaracoesGeradas({
 
   function openRastreioEdit(dec: Declaracao) {
     setMensagem(dec.mensagemRastreio?.trim() ? dec.mensagemRastreio : DEFAULT_TRACKING_MESSAGE);
-    setEmailCopia(dec.emailCopia ?? "");
+    // The default is Maicon's current email as registered in Responsáveis.
+    const maiconEmail = responsaveis.find(r => r.id === "d520eb5b-d523-47f6-9f74-feb3ddee3a80")?.email?.trim() ?? "";
+    const sameAsPrimary = maiconEmail.toLowerCase() === (dec.responsavelEmail ?? "").trim().toLowerCase();
+    // Keep the recorded CC on already-tracked declarations, avoiding edits to sent mail.
+    const savedCc = dec.emailCopia?.trim() ?? "";
+    setEmailCopia(savedCc || (!dec.codigoRastreio && !sameAsPrimary ? maiconEmail : ""));
     setEditingRastreio(dec.id);
     setRastreioInput(dec.codigoRastreio ?? "");
   }
@@ -210,7 +216,7 @@ export default function DeclaracoesGeradas({
                       <div className="flex flex-wrap items-center gap-1.5">
                         {dec.responsavelEmail && <>
                           <label className="w-full text-xs">Mensagem para {dec.responsavelEmail} · Declaração em PDF anexada automaticamente<textarea aria-label="Mensagem do e-mail" value={mensagem} onChange={e=>setMensagem(e.target.value)} maxLength={3000} className="block border rounded p-2 w-full" /></label>
-                          <label className="w-full text-xs">E-mail em cópia (CC) — opcional<input type="email" autoComplete="email" value={emailCopia} onChange={e=>setEmailCopia(e.target.value)} maxLength={254} placeholder="pessoa@empresa.com.br" className="block w-full border rounded p-2" /></label>
+                          <label className="w-full text-xs">E-mail em cópia (CC) — padrão: Maicon Muraro<input type="email" autoComplete="email" value={emailCopia} onChange={e=>setEmailCopia(e.target.value)} maxLength={254} placeholder="pessoa@empresa.com.br" className="block w-full border rounded p-2" /></label>
                         </>}
                         <input
                           autoFocus

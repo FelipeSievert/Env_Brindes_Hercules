@@ -39,13 +39,16 @@ test('Standard reply replaces the placeholder and includes the code only once', 
  assert.ok(text.startsWith('Bom dia, tudo bem?\nSegue aqui o código de rastreio: '+job.codigo));
  assert.equal(text.split(job.codigo).length-1,1);
  assert.ok(!text.includes('(CÓDIGO)'));
- assert.ok(text.includes('Declaração: QA'));
+ assert.ok(!text.includes('Declaração:'));
+ assert.ok(!text.includes('Hercules — Envio de Brindes'));
  assert.ok(text.includes('Enviado para: Destinatário salvo'));
  assert.equal(text.split('Enviado para:').length-1,1);
  const custom=renderTrackingMessage('Seu pedido foi enviado.',job.codigo,'QA','Pessoa','Destinatário salvo');
  assert.ok(custom.includes('Seu pedido foi enviado.'));
  assert.ok(custom.includes('Código de rastreio: '+job.codigo));
  assert.ok(custom.includes('Enviado para: Destinatário salvo'));
+ assert.ok(!custom.includes('Declaração:'));
+ assert.ok(!custom.includes('Hercules — Envio de Brindes'));
 });
 
 
@@ -58,6 +61,8 @@ test('Sent email includes a readable PDF attachment for the selected declaration
  const bodyText=Buffer.from(bodyEncoded,'base64').toString('utf8');
  assert.ok(bodyText.includes('Código de rastreio: '+job.codigo));
  assert.ok(bodyText.includes('Enviado para: Destinatário salvo'));
+ assert.ok(!bodyText.includes('Declaração:'));
+ assert.ok(!bodyText.includes('Hercules — Envio de Brindes'));
  assert.ok(mime.includes('Content-Disposition: attachment; filename="Declaracao_QA.pdf"'));
  const part=mime.split('Content-Type: application/pdf;')[1];
  const encoded=part.split('\r\n\r\n')[1].split('\r\n--')[0];

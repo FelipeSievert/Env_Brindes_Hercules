@@ -52,6 +52,7 @@ export default function DeclaracoesGeradas({
   const [editingRastreio, setEditingRastreio] = useState<string | null>(null);
   const [rastreioInput, setRastreioInput]     = useState("");
   const [mensagem,setMensagem]=useState("");
+  const [emailCopia,setEmailCopia]=useState("");
   const [emailFeedback,setEmailFeedback]=useState("");
   const [savingRastreio, setSavingRastreio]   = useState(false);
 
@@ -65,6 +66,7 @@ export default function DeclaracoesGeradas({
 
   function openRastreioEdit(dec: Declaracao) {
     setMensagem(dec.mensagemRastreio?.trim() ? dec.mensagemRastreio : DEFAULT_TRACKING_MESSAGE);
+    setEmailCopia(dec.emailCopia ?? "");
     setEditingRastreio(dec.id);
     setRastreioInput(dec.codigoRastreio ?? "");
   }
@@ -72,7 +74,7 @@ export default function DeclaracoesGeradas({
   async function saveRastreio(dec: Declaracao) {
     setSavingRastreio(true);
     try {
-      const feedback=await db.updateCodigoRastreio(dec.id, rastreioInput.trim(), mensagem);
+      const feedback=await db.updateCodigoRastreio(dec.id, rastreioInput.trim(), mensagem, emailCopia);
       setEmailFeedback(feedback);
       onUpdateRastreio(dec.id, rastreioInput.trim());
       setEditingRastreio(null);
@@ -206,7 +208,10 @@ export default function DeclaracoesGeradas({
                   <td className="px-4 py-3.5 min-w-[180px]">
                     {isEditingThis ? (
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {dec.responsavelEmail && <label className="w-full text-xs">Mensagem para {dec.responsavelEmail} · Declaração em PDF anexada automaticamente<textarea aria-label="Mensagem do e-mail" value={mensagem} onChange={e=>setMensagem(e.target.value)} maxLength={3000} className="block border rounded p-2 w-full" /></label>}
+                        {dec.responsavelEmail && <>
+                          <label className="w-full text-xs">Mensagem para {dec.responsavelEmail} · Declaração em PDF anexada automaticamente<textarea aria-label="Mensagem do e-mail" value={mensagem} onChange={e=>setMensagem(e.target.value)} maxLength={3000} className="block border rounded p-2 w-full" /></label>
+                          <label className="w-full text-xs">E-mail em cópia (CC) — opcional<input type="email" autoComplete="email" value={emailCopia} onChange={e=>setEmailCopia(e.target.value)} maxLength={254} placeholder="pessoa@empresa.com.br" className="block w-full border rounded p-2" /></label>
+                        </>}
                         <input
                           autoFocus
                           value={rastreioInput}

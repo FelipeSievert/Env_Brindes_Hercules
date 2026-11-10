@@ -3,7 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { callManageUsers } from "../lib/manageUsers";
 
-export type SystemRole = "admin" | "operator";
+export type SystemRole = "master" | "admin" | "operator";
 export type SystemStatus = "invited" | "active" | "blocked";
 export interface SystemUser {
   id: string;

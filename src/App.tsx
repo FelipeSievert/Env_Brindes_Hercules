@@ -245,6 +245,7 @@ export default function App() {
         {page === "declaracoes" && (
           <DeclaracoesGeradas
             declaracoes={declaracoes}
+            responsaveis={responsaveis}
             onView={handleViewDeclaracao}
             onDuplicate={handleDuplicate}
             onUpdateRastreio={handleUpdateRastreio}

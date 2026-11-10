@@ -31,7 +31,7 @@ export default function AdministrarUsuarios() {
   }
   return <div className="p-8 space-y-6 text-[#1E293B]">
     <header><h1 className="text-2xl font-semibold">Gerenciar usuários</h1>
-      <p className="text-sm text-[#64748B]">Somente o administrador pode convidar ou alterar contas.</p></header>
+      <p className="text-sm text-[#64748B]">Administradores e Master podem convidar ou alterar contas. A conta Master é protegida.</p></header>
     <form onSubmit={invite} className="bg-white border border-[#DDE3EC] rounded p-5 space-y-4 max-w-2xl">
       <h2 className="font-semibold">Convidar funcionário</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -50,11 +50,11 @@ export default function AdministrarUsuarios() {
         </tr></thead>
         <tbody>{users.map(u => <tr key={u.id} className="border-t border-[#DDE3EC]">
           <td className="p-3"><strong>{u.full_name}</strong><div className="text-[#64748B]">{u.email}</div></td>
-          <td className="p-3"><select aria-label={"Perfil de " + u.full_name} disabled={busy || u.id === me.id} value={u.role}
+          <td className="p-3">{u.role === "master" ? <strong className="text-[#1A3A6B]">Master</strong> : <select aria-label={"Perfil de " + u.full_name} disabled={busy || u.id === me.id} value={u.role}
             onChange={e => void change(u.id, { role: e.target.value as SystemRole })} className="border rounded p-2">
-            <option value="operator">Operador</option><option value="admin">Administrador</option></select></td>
+            <option value="operator">Operador</option><option value="admin">Administrador</option></select>}</td>
           <td className="p-3">{{ invited:"Convidado", active:"Ativo", blocked:"Bloqueado" }[u.status]}</td>
-          <td className="p-3">{u.id === me.id ? <span className="text-[#64748B]">Sua conta</span> :
+          <td className="p-3">{u.role === "master" ? <span className="text-[#64748B]">Conta Master protegida</span> : u.id === me.id ? <span className="text-[#64748B]">Sua conta</span> :
             <button disabled={busy} className="text-[#1A3A6B] underline disabled:opacity-50" onClick={() => void change(u.id,
               {status: u.status === "blocked" ? "active" : "blocked"})}>{u.status === "blocked" ? "Reativar" : "Bloquear"}</button>}</td>
         </tr>)}</tbody>

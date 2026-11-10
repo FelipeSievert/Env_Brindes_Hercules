@@ -60,7 +60,9 @@ Deno.serve(async(req:Request)=>{
  const refresh=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:clientId,client_secret:secret,refresh_token:account.refresh_token,grant_type:"refresh_token"})});
  const credentials=await refresh.json();
  if(!refresh.ok||!credentials.access_token)throw new Error("A autorização do Gmail precisa ser renovada.");
- const text=renderTrackingMessage(job.mensagem,job.codigo,decl.numero,decl.responsavel);
+ const recipientName=String(decl.destinatario_snapshot?.nome || decl.destinatario?.nome || "").trim();
+ if(!recipientName)throw new Error("Nome do destinatário ausente na declaração.");
+ const text=renderTrackingMessage(job.mensagem,job.codigo,decl.numero,decl.responsavel,recipientName);
  const raw=buildMessage(account.email,job.email,text,{filename,bytes:pdf});
  providerAttempted=true;
  const response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",{method:"POST",headers:{Authorization:`Bearer ${credentials.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({raw})});

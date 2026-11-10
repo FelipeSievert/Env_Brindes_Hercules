@@ -5,7 +5,7 @@ registerHooks({resolve(s,c,n){if(s.startsWith('npm:'))s=s.slice(4).replace('@sup
 let handler, sent=0, updates=[], authorized=true, jobStatus='pendente', providerFailure=false, rawEmail='', missingItems=false;
 const env={SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',APP_URL:'https://app.example.com',GOOGLE_CLIENT_ID:'test-id',GOOGLE_CLIENT_SECRET:'test-secret'};
 globalThis.Deno={env:{get:k=>env[k]},serve:fn=>handler=fn};
-const job={id:'11111111-1111-4111-8111-111111111111',declaracao_id:'22222222-2222-4222-8222-222222222222',email:'person@example.invalid',codigo:'AA123456789BR',mensagem:'Sua encomenda foi enviada.'};
+const job={id:'11111111-1111-4111-8111-111111111111',declaracao_id:'22222222-2222-4222-8222-222222222222',email:'person@example.invalid',email_copia:'copy@example.invalid',codigo:'AA123456789BR',mensagem:'Sua encomenda foi enviada.'};
 const json=(v,status=200)=>new Response(JSON.stringify(v),{status,headers:{'Content-Type':'application/json'}});
 globalThis.fetch=async(input,init={})=>{
  const u=new URL(typeof input==='string'?input:input.url),method=init.method??'GET';
@@ -57,6 +57,9 @@ test('Sent email includes a readable PDF attachment for the selected declaration
  await handler(request());
  const mime=Buffer.from(rawEmail,'base64url').toString();
  assert.ok(mime.includes('Content-Type: multipart/mixed;'));
+ assert.ok(mime.includes('To: person@example.invalid'));
+ assert.ok(mime.includes('Cc: copy@example.invalid'));
+
  const bodyEncoded=mime.split('Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n')[1].split('\r\n--')[0];
  const bodyText=Buffer.from(bodyEncoded,'base64').toString('utf8');
  assert.ok(bodyText.includes('Código de rastreio: '+job.codigo));
@@ -78,4 +81,13 @@ test('Attachment generation failure prevents sending and records a retryable err
  assert.equal(sent,0);
  assert.equal(updates.at(-1).status,'erro');
  assert.match(updates.at(-1).erro,/PDF/);
+});
+
+test('CC is absent when blank and unsafe CC values are rejected',()=>{
+ const noCc=Buffer.from(buildMessage('sender@example.invalid','person@example.invalid','Olá!'),'base64url').toString();
+ assert.ok(!noCc.includes('Cc:'));
+ const withCc=Buffer.from(buildMessage('sender@example.invalid','person@example.invalid','Olá!',undefined,'copy@example.invalid'),'base64url').toString();
+ assert.ok(withCc.includes('Cc: copy@example.invalid'));
+ assert.throws(()=>buildMessage('sender@example.invalid','person@example.invalid','text',undefined,'x@example.invalid\r\nBcc: other@example.invalid'));
+ assert.throws(()=>buildMessage('sender@example.invalid','person@example.invalid','text',undefined,'person@example.invalid'));
 });

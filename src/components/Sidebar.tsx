@@ -1,9 +1,10 @@
 import {
   LayoutDashboard, Users, Gift, FilePlus, FileText,
-  Settings, Zap, FileUp, UserCog, LogOut, ArrowDownToLine,
+  Settings, FileUp, UserCog, LogOut, ArrowDownToLine,
 } from "lucide-react";
 import { Page, Notificacao } from "../types";
 import NotificacoesPanel from "./NotificacoesPanel";
+import herculesH from "../assets/hercules-h.svg";
 
 interface SidebarProps {
   currentPage: Page;
@@ -36,9 +37,7 @@ export default function Sidebar({
       {/* Logo + notification bell */}
       <div className="px-4 py-5 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-[#D42B1E] rounded flex items-center justify-center shrink-0">
-            <Zap size={16} className="text-white" />
-          </div>
+          <img src={herculesH} alt="Logo Hercules" className="w-9 h-9 object-contain shrink-0" />
           <div>
             <p className="text-white font-['Outfit'] font-700 text-sm leading-tight">HERCULES</p>
             <p className="text-white/50 text-[10px] font-['Inter'] uppercase tracking-widest leading-tight">

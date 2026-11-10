@@ -12,9 +12,10 @@ function base64(bytes: Uint8Array): string {
 }
 export function encode(value:string){return base64(new TextEncoder().encode(value)).replaceAll("+","-").replaceAll("/","_").replaceAll("=","");}
 type PdfAttachment={filename:string;bytes:Uint8Array};
-export function buildMessage(sender:string,to:string,text:string,attachment?:PdfAttachment){
+export function buildMessage(sender:string,to:string,text:string,attachment?:PdfAttachment,cc=""){
  if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(sender)||!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(to)) throw new Error("Endereço de e-mail inválido.");
- const headers=[`From: ${sender}`,`To: ${to}`,`Subject: =?UTF-8?B?${btoa("Codigo de rastreio - Hercules")}?=`,"MIME-Version: 1.0"];
+ if(cc && (cc.length>254 || !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(cc) || cc.toLowerCase()===to.toLowerCase())) throw new Error("E-mail em cópia inválido.");
+ const headers=[`From: ${sender}`,`To: ${to}`,...(cc?[`Cc: ${cc}`]:[]),`Subject: =?UTF-8?B?${btoa("Codigo de rastreio - Hercules")}?=`,"MIME-Version: 1.0"];
  const message=base64(new TextEncoder().encode(text));
  if(!attachment)return encode([...headers,"Content-Type: text/plain; charset=UTF-8","Content-Transfer-Encoding: base64","",message].join("\r\n"));
  if(!/^[a-zA-Z0-9_.-]{1,100}\.pdf$/.test(attachment.filename)||attachment.bytes.length===0||attachment.bytes.length>10*1024*1024)throw new Error("Anexo PDF inválido ou muito grande.");
@@ -63,7 +64,7 @@ Deno.serve(async(req:Request)=>{
  const recipientName=String(decl.destinatario_snapshot?.nome || decl.destinatario?.nome || "").trim();
  if(!recipientName)throw new Error("Nome do destinatário ausente na declaração.");
  const text=renderTrackingMessage(job.mensagem,job.codigo,decl.numero,decl.responsavel,recipientName);
- const raw=buildMessage(account.email,job.email,text,{filename,bytes:pdf});
+ const raw=buildMessage(account.email,job.email,text,{filename,bytes:pdf},job.email_copia??"");
  providerAttempted=true;
  const response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",{method:"POST",headers:{Authorization:`Bearer ${credentials.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({raw})});
  if(!response.ok){if(response.status<500)providerAttempted=false;throw new Error("O provedor não confirmou o envio. Consulte o histórico.");}

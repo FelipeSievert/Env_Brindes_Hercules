@@ -7,7 +7,7 @@ create table public.personal_signatures (
 );
 alter table public.personal_signatures enable row level security;
 revoke all on public.personal_signatures from public, anon, authenticated;
-grant select, insert (user_id,image,version), update (image,version), delete on public.personal_signatures to authenticated;
+grant select, insert (user_id,image,version), update (user_id,image,version), delete on public.personal_signatures to authenticated;
 revoke all on public.personal_signatures from service_role;
 create policy personal_signature_owner on public.personal_signatures for all to authenticated
   using (user_id = (select auth.uid()) and exists(select 1 from public.app_users u where u.id = (select auth.uid()) and u.status = 'active'))

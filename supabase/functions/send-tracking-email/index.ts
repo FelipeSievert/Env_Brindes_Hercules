@@ -49,7 +49,7 @@ Deno.serve(async(req:Request)=>{
  const {data:claimed,error:claimError}=await admin.from("rastreio_emails").update({status:"enviando",erro:null}).eq("id",id).in("status",["pendente","erro"]).select("id").maybeSingle();
  if(claimError)throw new Error("Não foi possível reservar o envio.");
  if(!claimed)return reply({status:"enviando"});jobId=id;
- const {data:decl}=await admin.from("declaracoes").select("*,destinatario:destinatarios(*),itens:declaracao_itens(*,brinde:brindes(*))").eq("id",job.declaracao_id).maybeSingle();
+ const {data:decl}=await admin.from("declaracoes").select("*,destinatario:destinatarios(*),assinatura:declaration_signatures(image),itens:declaracao_itens(*,brinde:brindes(*))").eq("id",job.declaracao_id).maybeSingle();
  if(!decl||decl.responsavel_email!==job.email||decl.codigo_rastreio!==job.codigo||["cancelado","devolvido"].includes(decl.status))throw new Error("Dados da declaração mudaram. Revise o aviso antes de enviar.");
  const {data:senderConfig,error:configError}=await admin.from("configuracoes").select("*").eq("id",1).maybeSingle();
  if(configError||(!decl.remetente_snapshot&&!senderConfig))throw new Error("Não foi possível carregar os dados do remetente para o PDF.");

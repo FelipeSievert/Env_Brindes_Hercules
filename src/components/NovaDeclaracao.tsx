@@ -1,5 +1,6 @@
 import { DEFAULT_TRACKING_MESSAGE } from "../lib/trackingMessage";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { loadSignature, type PersonalSignature } from "../lib/signature";
 import { Search, Plus, Trash2, ChevronRight, ChevronLeft, FileText, AlertCircle, X, Tag } from "lucide-react";
 import { Destinatario, Brinde, Declaracao, ItemDeclaracao, Configuracoes } from "../types";
 import * as db from "../lib/db";
@@ -23,6 +24,17 @@ function todayFormatted(): string {
 
 export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, config, onGenerate }: Props) {
   const [step, setStep] = useState(1);
+  const [signature, setSignature] = useState<PersonalSignature | null>(null);
+  const [signatureError, setSignatureError] = useState("");
+  const [sign, setSign] = useState(false);
+  useEffect(() => {
+    setSign(false); setSignature(null); setSignatureError("");
+    if (step !== 4) return;
+    let mounted = true;
+    loadSignature().then(value => { if (mounted) setSignature(value); })
+      .catch(() => { if (mounted) setSignatureError("Não foi possível carregar sua assinatura. Você pode emitir sem assinatura."); });
+    return () => { mounted = false; };
+  }, [step]);
   const [destSearch, setDestSearch] = useState("");
   const [destCategoria, setDestCategoria] = useState("");
   const [selectedDests, setSelectedDests] = useState<Destinatario[]>([]);
@@ -108,7 +120,7 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
         totalItens,
         pesoTotal,
       }));
-      const saved = await db.insertDeclaracoes(batch);
+      const saved = await db.insertDeclaracoes(batch, sign && signature ? signature.version : undefined);
       const lastDec = saved[saved.length - 1];
 
       if (lastDec) {
@@ -428,6 +440,13 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
               {responsavel && <label className="block pt-3 text-sm">Mensagem para acompanhar o rastreio (declaração em PDF anexada automaticamente)<textarea value={mensagemRastreio} onChange={e=>setMensagemRastreio(e.target.value)} maxLength={3000} rows={4} placeholder="Escreva sua mensagem. (CÓDIGO) será substituído pelo rastreio informado." className="block w-full border rounded p-3" /></label>}
             </div>
 
+            <section className="border border-[#DDE3EC] rounded p-4 space-y-2">
+              <h3 className="text-sm font-semibold">Assinatura do declarante/remetente</h3>
+              {signature ? <>
+                <img src={signature.image} alt="Sua assinatura cadastrada" className="w-56 max-w-full border rounded bg-white" />
+                <label className="flex gap-2 items-start text-sm"><input type="checkbox" checked={sign} disabled={generating} onChange={e=>setSign(e.target.checked)} /> Confirmo o conteúdo e autorizo aplicar minha assinatura às {numDests === 1 ? "1 declaração" : numDests+" declarações"} deste envio.</label>
+              </> : <p className="text-xs text-[#64748B]">{signatureError || "Sem assinatura disponível. Cadastre a sua em Configurações pessoais."}</p>}
+            </section>
             {stockWarnings.length > 0 && (
               <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700 font-['Inter'] space-y-1">
                 <p className="font-600">Não é possível gerar — estoque insuficiente:</p>
@@ -463,7 +482,7 @@ export default function NovaDeclaracao({ responsaveis, destinatarios, brindes, c
               disabled={!selectedDests.length || !items.length || stockWarnings.length > 0 || generating}
               className="flex items-center gap-2 px-6 py-2.5 bg-[#D42B1E] text-white rounded text-sm font-['Inter'] font-700 hover:bg-[#b82318] disabled:opacity-40 transition-colors">
               <FileText size={16} />
-              {generating ? "Gerando..." : numDests > 1 ? `GERAR ${numDests} DECLARAÇÕES` : "GERAR DECLARAÇÃO"}
+              {generating ? "Gerando..." : sign ? (numDests > 1 ? `ASSINAR E GERAR ${numDests} DECLARAÇÕES` : "ASSINAR E GERAR DECLARAÇÃO") : numDests > 1 ? `GERAR ${numDests} DECLARAÇÕES` : "GERAR DECLARAÇÃO"}
             </button>
           )}
         </div>

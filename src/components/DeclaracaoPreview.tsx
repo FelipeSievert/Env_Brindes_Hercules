@@ -19,7 +19,7 @@ function formatDateLong(dateStr: string): string {
 }
 
 export default function DeclaracaoPreview({ declaracao, config, onBack, onEdit }: Props) {
-  const r = config.remetente;
+  const r = declaracao.remetenteAssinado ?? config.remetente;
   const d = declaracao.destinatario;
 
   const valorTotal = declaracao.itens.reduce(
@@ -441,6 +441,7 @@ function DeclaracaoA4({
             {r.cidade}, {formatDateLong(declaracao.data)}
           </div>
           <div style={{ width: "72mm", textAlign: "center" }}>
+            {declaracao.assinaturaImagem && <img src={declaracao.assinaturaImagem} alt="Assinatura do declarante" style={{ width: "100%", height: "10mm", objectFit: "contain", display: "block" }} />}
             <div
               style={{
                 borderTop: "1px solid #000",

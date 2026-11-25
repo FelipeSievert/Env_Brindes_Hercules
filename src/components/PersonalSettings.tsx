@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import SignatureSettings from "./SignatureSettings";
 import { useAuth } from "../auth/AuthGate";
 import { savePersonalName, requestPersonalEmail, savePersonalPassword, requestPasswordCode } from "../lib/personalSettings";
 
@@ -55,6 +56,7 @@ export default function PersonalSettings() {
   }
   return <div className="space-y-6">
     <div><h2 className="text-lg font-semibold text-[#1E293B]">Configurações pessoais</h2><p className="text-sm text-[#64748B]">Dados da sua conta e acesso ao sistema.</p></div>
+    <SignatureSettings key={user.id} />
     <form onSubmit={saveName} className={cardClass}>
       <h3 className="font-semibold">Nome</h3>
       <label className="block text-sm">Nome completo<input value={name} onChange={event=>setName(event.target.value)} required minLength={2} maxLength={160} autoComplete="name" className={inputClass} /></label>

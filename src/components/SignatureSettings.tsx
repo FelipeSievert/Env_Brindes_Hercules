@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type PointerEvent } from "react";
+import DeclarationSignature from "./DeclarationSignature";
+import { inkBounds } from "../../supabase/functions/send-tracking-email/signature-layout";
 import { loadSignature, saveSignature, deleteSignature, type PersonalSignature } from "../lib/signature";
 
 const WIDTH = 600;
@@ -20,6 +22,7 @@ export default function SignatureSettings() {
   const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState(false);
   const [drawn, setDrawn] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -35,6 +38,7 @@ export default function SignatureSettings() {
     history.current = [];
     active.current = null;
     setHistoryCount(0);
+    setPreviewImage(null);
     setDrawn(false);
     setConsent(false);
     setError("");
@@ -57,6 +61,7 @@ export default function SignatureSettings() {
     ctx.putImageData(frame.pixels, 0, 0);
     setHistoryCount(history.current.length);
     setDrawn(frame.drawn);
+    setPreviewImage(frame.drawn ? ctx.canvas.toDataURL("image/png") : null);
     setConsent(false);
     setError("");
   }, [editing, loading]);
@@ -98,13 +103,18 @@ export default function SignatureSettings() {
     const [x,y] = point(e);
     ctx.lineTo(x,y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x,y);
   }
-  function end(e: PointerEvent<HTMLCanvasElement>) { if (active.current === e.pointerId) active.current = null; }
+  function end(e: PointerEvent<HTMLCanvasElement>) {
+    if (active.current !== e.pointerId) return;
+    active.current = null;
+    setPreviewImage(e.currentTarget.toDataURL("image/png"));
+  }
   function clear() {
     if (loading || importLock.current || active.current !== null || !drawn) return;
     const ctx = canvas.current?.getContext("2d");
     if (!ctx) return;
     remember(ctx);
     ctx.clearRect(0,0,WIDTH,HEIGHT);
+    setPreviewImage(null);
     setDrawn(false); setConsent(false);
   }
   async function importImage(event: ChangeEvent<HTMLInputElement>) {
@@ -129,9 +139,16 @@ export default function SignatureSettings() {
       work.width = WIDTH; work.height = HEIGHT;
       const ctx = work.getContext("2d");
       if (!ctx) throw new Error("Não foi possível preparar a imagem.");
-      const scale = Math.min((WIDTH-12)/bitmap.width, (HEIGHT-12)/bitmap.height);
-      const w = bitmap.width*scale, h = bitmap.height*scale;
-      ctx.drawImage(bitmap,(WIDTH-w)/2,(HEIGHT-h)/2,w,h);
+      // Crop before downsampling, so small ink on a large scanned page is not lost.
+      const source=document.createElement("canvas");
+      source.width=bitmap.width; source.height=bitmap.height;
+      const sourceCtx=source.getContext("2d");
+      if(!sourceCtx) throw new Error("Não foi possível analisar a imagem.");
+      sourceCtx.drawImage(bitmap,0,0);
+      const bounds=inkBounds(sourceCtx.getImageData(0,0,source.width,source.height).data,source.width,source.height);
+      const scale=Math.min((WIDTH-12)/bounds.width,(HEIGHT-12)/bounds.height);
+      const w=bounds.width*scale,h=bounds.height*scale;
+      ctx.drawImage(source,bounds.x,bounds.y,bounds.width,bounds.height,(WIDTH-w)/2,(HEIGHT-h)/2,w,h);
       const pixels = ctx.getImageData(0,0,WIDTH,HEIGHT);
       let ink = false;
       for(let i=0;i<pixels.data.length;i+=4) {
@@ -145,6 +162,7 @@ export default function SignatureSettings() {
       if (!target) throw new Error("Não foi possível inserir a imagem.");
       remember(target);
       target.putImageData(pixels,0,0);
+      setPreviewImage(target.canvas.toDataURL("image/png"));
       setDrawn(true); setConsent(false);
       setNotice("Imagem importada. Revise a assinatura antes de salvar.");
     } catch(e) {
@@ -189,6 +207,13 @@ export default function SignatureSettings() {
         <button type="button" className={button} disabled={busy} onClick={()=>{if(active.current===null)fileInput.current?.click();}}>{importing?"Importando…":"Importar assinatura"}</button>
         <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={importImage} className="hidden" aria-label="Importar imagem da assinatura" disabled={busy} />
       </div>
+      {previewImage && <div className="rounded border border-[#DDE3EC] p-3 bg-white space-y-2">
+        <p className="text-xs font-semibold text-[#64748B]">Prévia automática na declaração</p>
+        <div style={{width:"72mm",maxWidth:"100%"}}>
+          <DeclarationSignature image={previewImage}/>
+          <div style={{borderTop:"1px solid #000",fontSize:"8pt",textAlign:"center",paddingTop:3}}>Assinatura do Declarante/Remetente</div>
+        </div>
+      </div>}
       <p className="text-xs text-[#64748B]">PNG, JPG ou WebP · até 5 MB · preferencialmente com fundo transparente ou branco.</p>
       <label className="flex gap-2 text-sm items-start"><input type="checkbox" checked={consent} disabled={busy} onChange={e=>setConsent(e.target.checked)} /> Confirmo que esta assinatura é minha e autorizo guardá-la para uso nas declarações que eu confirmar. Posso excluir o cadastro posteriormente.</label>
       <div className="flex flex-wrap gap-2"><button type="button" className="bg-[#1A3A6B] text-white px-4 py-2 rounded text-sm disabled:opacity-50" disabled={busy||!drawn||!consent} onClick={save}>Salvar assinatura</button><button type="button" className={button} disabled={busy} onClick={()=>{setEditing(false);resetEditor();setNotice("");}}>Cancelar</button></div>

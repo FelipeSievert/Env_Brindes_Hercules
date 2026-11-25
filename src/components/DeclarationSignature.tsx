@@ -28,6 +28,6 @@ export default function DeclarationSignature({ image }: { image: string }) {
     return ()=>{cancelled=true;source.onload=null;};
   },[image]);
   return <div style={{width:"100%",height:"17mm",display:"flex",justifyContent:"center",alignItems:"flex-end",padding:"0 2mm 0.5mm",boxSizing:"border-box"}}>
-    <img src={cropped?.source===image?cropped.image:image} alt="Assinatura do declarante" style={{display:"block",maxWidth:"100%",maxHeight:"100%",width:"auto",height:"auto",objectFit:"contain"}} />
+    <img src={cropped?.source===image?cropped.image:image} alt="Assinatura do declarante" style={{display:"block",maxWidth:"100%",maxHeight:"100%",width:"100%",height:"100%",objectFit:"contain",objectPosition:"center bottom"}} />
   </div>;
 }

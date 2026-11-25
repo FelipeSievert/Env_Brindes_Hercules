@@ -4,7 +4,7 @@ import { useAuth } from "../auth/AuthGate";
 import { useState } from "react";
 import {
   Eye, Printer, Download, Copy, Search, Trash2, AlertTriangle,
-  PackageCheck, Clock, AlertCircle, X, Save, QrCode,
+  PackageCheck, Clock, AlertCircle, X, Save, QrCode, Undo2,
 } from "lucide-react";
 import { Declaracao, Responsavel, calcStatusRastreio, StatusRastreio } from "../types";
 import * as db from "../lib/db";
@@ -17,6 +17,7 @@ interface Props {
   onDuplicate: (dec: Declaracao) => void;
   onDelete: (dec: Declaracao) => Promise<void>;
   onUpdateRastreio: (id: string, codigo: string) => void;
+  onRegisterReturn: (dec: Declaracao, motivo: string, itens: { brindeId: string; quantidade: number }[], key: string) => Promise<string>;
 }
 
 const statusInfo = declarationStatuses;
@@ -38,7 +39,7 @@ function RastreioIndicator({ status }: { status: StatusRastreio }) {
 }
 
 export default function DeclaracoesGeradas({
-  declaracoes, responsaveis, onView, onDuplicate, onDelete, onUpdateRastreio,
+  declaracoes, responsaveis, onView, onDuplicate, onDelete, onUpdateRastreio, onRegisterReturn,
 }: Props) {
   const { user } = useAuth();
   const [onlyMine, setOnlyMine] = useState(false);
@@ -48,6 +49,37 @@ export default function DeclaracoesGeradas({
   const [toDelete, setToDelete]     = useState<Declaracao | null>(null);
   const [deleting, setDeleting]     = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  const [toReturn, setToReturn] = useState<Declaracao | null>(null);
+  const [returnQty, setReturnQty] = useState<Record<string, string>>({});
+  const [returnReason, setReturnReason] = useState("");
+  const [returnKey, setReturnKey] = useState("");
+  const [returnSaving, setReturnSaving] = useState(false);
+  const [returnError, setReturnError] = useState("");
+  const [returnFeedback, setReturnFeedback] = useState("");
+  const returnItems = (toReturn?.itens ?? []).map(item => ({
+    brindeId: item.brindeId, quantidade: Number(returnQty[item.brindeId] || 0)
+  }));
+  const returnTotal = returnItems.reduce((sum, item) => sum + item.quantidade, 0);
+  const returnValid = !!toReturn && returnReason.trim().length >= 3 && returnReason.trim().length <= 500 &&
+    returnTotal > 0 && toReturn.itens.every((item, i) => Number.isInteger(returnItems[i].quantidade) &&
+      returnItems[i].quantidade >= 0 && returnItems[i].quantidade <= item.quantidade);
+
+  function openReturn(dec: Declaracao) {
+    setToReturn(dec); setReturnQty({}); setReturnReason(""); setReturnError("");
+    setReturnKey(crypto.randomUUID()); setReturnFeedback("");
+  }
+
+  async function confirmReturn() {
+    if (!toReturn || !returnValid || returnSaving) return;
+    setReturnSaving(true); setReturnError("");
+    try {
+      const message = await onRegisterReturn(toReturn, returnReason, returnItems, returnKey);
+      setReturnFeedback(message); setToReturn(null);
+    } catch (error) {
+      setReturnError(error instanceof Error ? error.message : "Não foi possível registrar a devolução.");
+    } finally { setReturnSaving(false); }
+  }
 
   // Inline rastreio edit state
   const [editingRastreio, setEditingRastreio] = useState<string | null>(null);
@@ -121,6 +153,7 @@ export default function DeclaracoesGeradas({
       </div>
 
       {emailFeedback&&<p role="status" className="bg-blue-50 border p-3 rounded">{emailFeedback}</p>}
+      {returnFeedback && <p role="status" className="bg-green-50 border border-green-200 text-green-800 p-3 rounded">{returnFeedback}</p>}
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <MyRecordsFilter value={onlyMine} onChange={setOnlyMine} />
@@ -212,7 +245,9 @@ export default function DeclaracoesGeradas({
                     <RastreioIndicator status={rastreioSt} />
                   </td>
                   <td className="px-4 py-3.5 min-w-[180px]">
-                    {isEditingThis ? (
+                    {dec.status === "devolvido" || dec.status === "cancelado" ? (
+                      <span className="font-['JetBrains_Mono',monospace] text-xs text-[#64748B]">{dec.codigoRastreio || "—"}</span>
+                    ) : isEditingThis ? (
                       <div className="flex flex-wrap items-center gap-1.5">
                         {dec.responsavelEmail && <>
                           <label className="w-full text-xs">Mensagem para {dec.responsavelEmail} · Declaração em PDF anexada automaticamente<textarea aria-label="Mensagem do e-mail" value={mensagem} onChange={e=>setMensagem(e.target.value)} maxLength={3000} className="block border rounded p-2 w-full" /></label>
@@ -276,6 +311,11 @@ export default function DeclaracoesGeradas({
                       <button onClick={() => onView(dec)} className="p-1.5 rounded hover:bg-[#EEF2F7] text-[#64748B] hover:text-[#1A3A6B] transition-colors" title="Imprimir"><Printer size={15} /></button>
                       <button className="p-1.5 rounded hover:bg-[#EEF2F7] text-[#64748B] hover:text-[#1A3A6B] transition-colors" title="Baixar PDF"><Download size={15} /></button>
                       <button onClick={() => onDuplicate(dec)} className="p-1.5 rounded hover:bg-[#EEF2F7] text-[#64748B] hover:text-[#1A3A6B] transition-colors" title="Duplicar"><Copy size={15} /></button>
+                      {dec.status === "informado" && (
+                        <button type="button" onClick={() => openReturn(dec)} className="flex items-center gap-1 px-2 py-1.5 rounded border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 whitespace-nowrap text-xs" title="Registrar devolução" aria-label="Registrar devolução">
+                          <Undo2 size={15} /> Devolver
+                        </button>
+                      )}
                       <button onClick={() => { setDeleteError(""); setToDelete(dec); }} className="p-1.5 rounded hover:bg-red-50 text-[#64748B] hover:text-[#D42B1E] transition-colors" title="Excluir"><Trash2 size={15} /></button>
                     </div>
                   </td>
@@ -303,6 +343,47 @@ export default function DeclaracoesGeradas({
           </span>
         ))}
       </div>
+
+      {toReturn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <section role="dialog" aria-modal="true" aria-labelledby="return-title" className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start gap-3 px-6 py-5 border-b border-[#DDE3EC]">
+              <Undo2 size={24} className="text-amber-700 shrink-0" />
+              <div className="flex-1">
+                <h2 id="return-title" className="font-['Outfit'] font-semibold text-[#1E293B] text-lg">Registrar devolução</h2>
+                <p className="text-sm text-[#64748B]">{toReturn.numero} · {toReturn.destinatario?.nome ?? "Destinatário não informado"}</p>
+              </div>
+              <button type="button" aria-label="Fechar devolução" disabled={returnSaving} onClick={() => setToReturn(null)} className="p-1 text-[#64748B] disabled:opacity-50"><X size={20} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-[#64748B]">Informe somente os brindes que retornaram fisicamente. A declaração original será preservada.</p>
+              <button type="button" disabled={returnSaving} onClick={() => setReturnQty(Object.fromEntries(toReturn.itens.map(item => [item.brindeId, String(item.quantidade)])))} className="text-sm text-[#1A3A6B] underline disabled:opacity-50">Todos os itens retornaram</button>
+              <div className="overflow-x-auto border border-[#DDE3EC] rounded">
+                <table className="w-full text-sm">
+                  <thead className="bg-[#F8FAFC] text-[#64748B]"><tr><th className="text-left p-3">Brinde</th><th className="p-3 text-right">Enviado</th><th className="p-3 text-right">Retornou</th></tr></thead>
+                  <tbody>{toReturn.itens.map(item => (
+                    <tr key={item.brindeId} className="border-t border-[#DDE3EC]">
+                      <td className="p-3">{item.brinde?.nome || "Brinde"}</td>
+                      <td className="p-3 text-right">{item.quantidade}</td>
+                      <td className="p-3 text-right"><input type="number" min={0} max={item.quantidade} step={1} aria-label={"Quantidade devolvida: " + (item.brinde?.nome || item.brindeId)} disabled={returnSaving} value={returnQty[item.brindeId] ?? ""} placeholder="0" onChange={e => setReturnQty(prev => ({ ...prev, [item.brindeId]: e.target.value }))} className="w-24 border border-[#DDE3EC] rounded px-2 py-1.5 text-right" /></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <label className="block text-sm font-medium text-[#1E293B]">Motivo da devolução
+                <textarea maxLength={500} rows={3} disabled={returnSaving} value={returnReason} onChange={e => setReturnReason(e.target.value)} placeholder="Ex.: objeto retornou ao remetente" className="mt-1 block w-full border border-[#DDE3EC] rounded p-3 font-normal" />
+              </label>
+              <div className="flex justify-between text-sm font-semibold text-[#1A3A6B]"><span>Unidades a repor no estoque</span><span>{Number.isFinite(returnTotal) ? returnTotal : "—"}</span></div>
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-3">Este registro encerra a devolução desta declaração, inclusive quando apenas parte dos itens retornou. Confira as quantidades antes de confirmar.</p>
+              {returnError && <p role="alert" className="text-sm text-red-700">{returnError} Em caso de dúvida, atualize a página antes de iniciar outra operação.</p>}
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-[#DDE3EC]">
+              <button type="button" disabled={returnSaving} onClick={() => setToReturn(null)} className="px-4 py-2 rounded text-sm text-[#64748B] border border-[#DDE3EC] disabled:opacity-50">Cancelar</button>
+              <button type="button" disabled={!returnValid || returnSaving} onClick={confirmReturn} className="px-4 py-2 rounded text-sm text-white bg-[#1A3A6B] hover:bg-[#15305A] disabled:opacity-50">{returnSaving ? "Registrando..." : "Confirmar devolução"}</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       {toDelete && (

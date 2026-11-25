@@ -83,6 +83,7 @@ export interface Declaracao extends Authorship {
   lembreteRastreioEnviado?: boolean;
   dataLembreteRastreio?: string;
   assinaturaImagem?: string;
+  remetenteAssinado?: Configuracoes['remetente'];
   createdAt?: string;
 }
 

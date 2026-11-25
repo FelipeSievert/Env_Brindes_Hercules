@@ -292,6 +292,7 @@ function mapDeclaracao(row: Record<string, unknown>): Declaracao {
     numero: String(row.numero ?? ""),
     destinatario: declarationRecipient(row),
     assinaturaImagem: (row.assinatura as { image?: string } | null)?.image,
+    remetenteAssinado: row.assinatura && row.remetente_snapshot ? row.remetente_snapshot as Configuracoes['remetente'] : undefined,
     itens,
     data: String(row.data ?? ""),
     local: String(row.local ?? ""),

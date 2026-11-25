@@ -19,7 +19,7 @@ function formatDateLong(dateStr: string): string {
 }
 
 export default function DeclaracaoPreview({ declaracao, config, onBack, onEdit }: Props) {
-  const r = config.remetente;
+  const r = declaracao.remetenteAssinado ?? config.remetente;
   const d = declaracao.destinatario;
 
   const valorTotal = declaracao.itens.reduce(

@@ -66,7 +66,7 @@ revoke all on function public.create_signed_declarations(jsonb,uuid) from public
 grant execute on function public.create_signed_declarations(jsonb,uuid) to authenticated;
 -- Validate a bounded PNG canvas and stamp consent at the server.
 create function eb_audit_private.validate_personal_signature() returns trigger
-language plpgsql security invoker set search_path='' as $
+language plpgsql security invoker set search_path='' as $$
 declare png bytea;
 begin
   if length(new.image) > 400000 or new.image !~ '^data:image/png;base64,[A-Za-z0-9+/=]+
@@ -82,14 +82,14 @@ begin
   if tg_op='UPDATE' and new.version=old.version then raise exception 'Nova versão obrigatória.'; end if;
   new.consented_at:=statement_timestamp();
   return new;
-end $;
+end $$;
 revoke all on function eb_audit_private.validate_personal_signature() from public,anon,authenticated;
 create trigger signature_validate before insert or update on public.personal_signatures
 for each row execute function eb_audit_private.validate_personal_signature();
 
 -- Protect the content, not the operational tracking/return status.
 create function eb_audit_private.guard_signed_declaration() returns trigger
-language plpgsql security definer set search_path='' as $
+language plpgsql security definer set search_path='' as $$
 begin
   if tg_op='DELETE' then
     if exists(select 1 from public.declaration_signatures s where s.declaration_id=old.id) then
@@ -103,12 +103,12 @@ begin
       raise exception 'Conteúdo de documento assinado não pode ser alterado.' using errcode='42501';
   end if;
   return new;
-end $;
+end $$;
 revoke all on function eb_audit_private.guard_signed_declaration() from public,anon,authenticated;
 create trigger guard_signed_declaration before update or delete on public.declaracoes for each row execute function eb_audit_private.guard_signed_declaration();
 
 create function eb_audit_private.guard_signed_items() returns trigger
-language plpgsql security definer set search_path='' as $
+language plpgsql security definer set search_path='' as $$
 declare old_id uuid; new_id uuid;
 begin
   if tg_op<>'INSERT' then old_id:=old.declaracao_id; end if;
@@ -118,7 +118,7 @@ begin
   end if;
   if tg_op='DELETE' then return old; end if;
   return new;
-end $;
+end $$;
 revoke all on function eb_audit_private.guard_signed_items() from public,anon,authenticated;
 create trigger guard_signed_items before insert or update or delete on public.declaracao_itens for each row execute function eb_audit_private.guard_signed_items();
 notify pgrst, 'reload schema';

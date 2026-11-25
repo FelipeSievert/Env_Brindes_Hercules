@@ -153,7 +153,7 @@ export async function buildDeclarationPdf(declaration: PdfDeclaration, sender: P
       const from=((bounds.y+row)*decoded.width+bounds.x)*4;
       decoded.data.copy(pixels,row*bounds.width*4,from,from+bounds.width*4);
     }
-    blueInk(pixels);
+    blueInk(pixels,bounds.width);
     const signature=await pdf.embedPng(PNG.sync.write({width:bounds.width,height:bounds.height,data:pixels}));
     const heightPt=SIGNATURE_HEIGHT_MM*72/25.4;
     const gapPt=SIGNATURE_GAP_MM*72/25.4;

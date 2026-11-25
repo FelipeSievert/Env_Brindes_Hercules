@@ -22,7 +22,7 @@ export default function DeclarationSignature({ image }: { image: string }) {
         if(!out)return;
         out.drawImage(original,bounds.x,bounds.y,bounds.width,bounds.height,0,0,bounds.width,bounds.height);
         const pixels=out.getImageData(0,0,output.width,output.height);
-        blueInk(pixels.data);
+        blueInk(pixels.data,output.width);
         out.putImageData(pixels,0,0);
         setCropped({source:image,image:output.toDataURL("image/png")});
       } catch { /* Preserve original image if canvas is unavailable. */ }

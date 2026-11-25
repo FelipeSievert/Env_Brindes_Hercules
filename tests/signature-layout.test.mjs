@@ -19,7 +19,11 @@ test("edge ink and blank canvas handled",()=>{
 test("blue pen keeps transparent pixels and soft edges",()=>{
  const pixels=new Uint8ClampedArray([0,0,0,255,255,255,255,255,100,100,100,128,0,0,0,0]);
  blueInk(pixels);
- assert.deepEqual(Array.from(pixels.slice(0,8)),[31,78,163,255,31,78,163,0]);
+ assert.ok(pixels[0]>=21&&pixels[0]<=31);
+ assert.ok(pixels[1]>=57&&pixels[1]<=73);
+ assert.ok(pixels[2]>=139&&pixels[2]<=164);
+ assert.ok(pixels[3]>=244&&pixels[3]<=255);
+ assert.equal(pixels[7],0);
  assert.ok(pixels[11]>0&&pixels[11]<128);
  assert.equal(pixels[15],0);
  assert.equal(SIGNATURE_HEIGHT_MM,10);

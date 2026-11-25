@@ -249,6 +249,17 @@ export default function App() {
             onView={handleViewDeclaracao}
             onDuplicate={handleDuplicate}
             onUpdateRastreio={handleUpdateRastreio}
+            onRegisterReturn={async (dec, motivo, itens, key) => {
+              await db.registerDeclarationReturn(dec.id, motivo, itens, key);
+              // A confirmed mutation must not be repeated if only the refresh fails.
+              setDeclaracoes(prev => prev.map(d => d.id === dec.id ? { ...d, status: "devolvido" } : d));
+              const [stock, declarations] = await Promise.allSettled([db.fetchBrindes(), db.fetchDeclaracoes()]);
+              if (stock.status === "fulfilled") setBrindes(stock.value);
+              if (declarations.status === "fulfilled") setDeclaracoes(declarations.value);
+              return stock.status === "fulfilled" && declarations.status === "fulfilled"
+                ? "Devolução registrada. Estoque atualizado."
+                : "Devolução registrada. Atualize a página para consultar os saldos e a declaração.";
+            }}
             onDelete={async (dec) => {
               await db.deleteDeclaracao(dec);
               setDeclaracoes((prev) => prev.filter((d) => d.id !== dec.id));

@@ -69,8 +69,7 @@ create function eb_audit_private.validate_personal_signature() returns trigger
 language plpgsql security invoker set search_path='' as $$
 declare png bytea;
 begin
-  if length(new.image) > 400000 or new.image !~ '^data:image/png;base64,[A-Za-z0-9+/=]+
- then
+  if length(new.image) > 400000 or new.image !~ '^data:image/png;base64,[A-Za-z0-9+/=]+$' then
     raise exception 'Imagem de assinatura inválida.';
   end if;
   png := decode(substr(new.image,23),'base64');

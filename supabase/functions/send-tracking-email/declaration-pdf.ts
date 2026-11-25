@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import { PNG } from "npm:pngjs@7.0.0";
 import { Buffer } from "node:buffer";
-import { inkBounds } from "./signature-layout.ts";
+import { inkBounds, blueInk, SIGNATURE_HEIGHT_MM, SIGNATURE_GAP_MM } from "./signature-layout.ts";
 
 type Party = { nome?: string; endereco?: string; numero?: string; complemento?: string; cidade?: string; uf?: string; cep?: string; cnpj?: string; cpf_cnpj?: string; aos_cuidados?: string };
 type Gift = { nome?: string; valor?: number | string };
@@ -112,7 +112,7 @@ export async function buildDeclarationPdf(declaration: PdfDeclaration, sender: P
     return { index: index + 1, name, qty, value, height: Math.max(18, wrap(name, columns[1] - 10).length * 11 + 6) };
   });
   const money = (value: number) => value.toFixed(2).replace(".", ",");
-  const reservedFooter = declaration.assinatura?.image ? 265 : 225;
+  const reservedFooter = declaration.assinatura?.image ? 247 : 225;
   let y = heading(), rowsThisPage = 0;
   for (const row of values) {
     if (y + row.height > H - reservedFooter) {
@@ -135,7 +135,7 @@ export async function buildDeclarationPdf(declaration: PdfDeclaration, sender: P
   cell(`${Number(declaration.peso_total).toFixed(3).replace(".",",")} kg`,offsets[2],y,columns[2]+columns[3],18,true,false,"center"); y+=23;
   cell("D E C L A R A Ç Ã O",margin,y,width,18,true,false,"center"); y+=18;
   const legal = "Declaro que não me enquadro no conceito de contribuinte previsto no art. 4º da Lei Complementar nº 87/1996, uma vez que não realizo, com habitualidade ou em volume que caracterize intuito comercial, operações de circulação de mercadoria, ainda que se iniciem no exterior, ou estou dispensado da emissão da nota fiscal por força da legislação tributária vigente, responsabilizando-me, nos termos da lei e a quem de direito, por informações inverídicas.";
-  const legalLines = wrap(legal,width-16,8.5), legalHeight=legalLines.length*12+(declaration.assinatura?.image ? 83 : 53);
+  const legalLines = wrap(legal,width-16,8.5), legalHeight=legalLines.length*12+(declaration.assinatura?.image ? 65 : 53);
   box(margin,y,width,legalHeight);
   legalLines.forEach((line,i)=>text(line,margin+8,y+6+i*12,8.5));
   const months = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
@@ -153,9 +153,12 @@ export async function buildDeclarationPdf(declaration: PdfDeclaration, sender: P
       const from=((bounds.y+row)*decoded.width+bounds.x)*4;
       decoded.data.copy(pixels,row*bounds.width*4,from,from+bounds.width*4);
     }
+    blueInk(pixels);
     const signature=await pdf.embedPng(PNG.sync.write({width:bounds.width,height:bounds.height,data:pixels}));
-    const size=signature.scaleToFit(191,46);
-    page.drawImage(signature,{x:W-margin-109-size.width/2,y:H-y-legalHeight+30.5,...size});
+    const heightPt=SIGNATURE_HEIGHT_MM*72/25.4;
+    const gapPt=SIGNATURE_GAP_MM*72/25.4;
+    const size=signature.scaleToFit(191,heightPt);
+    page.drawImage(signature,{x:W-margin-109-size.width/2,y:H-y-legalHeight+29+gapPt+(heightPt-size.height)/2,...size});
   }
   page.drawLine({start:{x:W-margin-210,y:H-y-legalHeight+29},end:{x:W-margin-8,y:H-y-legalHeight+29},thickness:0.6,color:black});
   text("Assinatura do Declarante/Remetente",W-margin-204,y+legalHeight-25,8); y+=legalHeight+5;

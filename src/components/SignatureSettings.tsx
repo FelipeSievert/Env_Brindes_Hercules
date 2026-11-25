@@ -91,7 +91,7 @@ export default function SignatureSettings() {
     active.current = e.pointerId;
     e.currentTarget.setPointerCapture(e.pointerId);
     const [x,y] = point(e);
-    ctx.strokeStyle = "#152943"; ctx.fillStyle = "#152943"; ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.strokeStyle = "#1f4ea3"; ctx.fillStyle = "#1f4ea3"; ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round";
     ctx.beginPath(); ctx.arc(x,y,1.5,0,Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.moveTo(x,y);
     setDrawn(true); setConsent(false);

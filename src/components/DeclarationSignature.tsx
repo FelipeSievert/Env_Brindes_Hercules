@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { inkBounds } from "../../supabase/functions/send-tracking-email/signature-layout";
+import { inkBounds, blueInk, SIGNATURE_HEIGHT_MM, SIGNATURE_GAP_MM } from "../../supabase/functions/send-tracking-email/signature-layout";
 
 export default function DeclarationSignature({ image }: { image: string }) {
   const [cropped,setCropped]=useState<{source:string;image:string}|null>(null);
@@ -21,13 +21,16 @@ export default function DeclarationSignature({ image }: { image: string }) {
         const out=output.getContext("2d");
         if(!out)return;
         out.drawImage(original,bounds.x,bounds.y,bounds.width,bounds.height,0,0,bounds.width,bounds.height);
+        const pixels=out.getImageData(0,0,output.width,output.height);
+        blueInk(pixels.data);
+        out.putImageData(pixels,0,0);
         setCropped({source:image,image:output.toDataURL("image/png")});
       } catch { /* Preserve original image if canvas is unavailable. */ }
     };
     source.src=image;
     return ()=>{cancelled=true;source.onload=null;};
   },[image]);
-  return <div style={{width:"100%",height:"17mm",display:"flex",justifyContent:"center",alignItems:"flex-end",padding:"0 2mm 0.5mm",boxSizing:"border-box"}}>
-    <img src={cropped?.source===image?cropped.image:image} alt="Assinatura do declarante" style={{display:"block",maxWidth:"100%",maxHeight:"100%",width:"100%",height:"100%",objectFit:"contain",objectPosition:"center bottom"}} />
+  return <div style={{width:"100%",height:`${SIGNATURE_HEIGHT_MM}mm`,display:"flex",justifyContent:"center",alignItems:"center",marginBottom:`${SIGNATURE_GAP_MM}mm`,padding:"0 2mm",boxSizing:"border-box"}}>
+    <img src={cropped?.source===image?cropped.image:image} alt="Assinatura do declarante" style={{display:"block",maxWidth:"100%",maxHeight:"100%",width:"100%",height:"100%",objectFit:"contain",objectPosition:"center center"}} />
   </div>;
 }

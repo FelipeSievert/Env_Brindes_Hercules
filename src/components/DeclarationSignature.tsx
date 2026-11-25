@@ -15,7 +15,7 @@ export default function DeclarationSignature({ image }: { image: string }) {
         const ctx=original.getContext("2d");
         if(!ctx)return;
         ctx.drawImage(source,0,0);
-        const bounds=inkBounds(ctx.getImageData(0,0,original.width,original.height).data,original.width,original.height);
+        const bounds=inkBounds(ctx.getImageData(0,0,original.width,original.height).data,original.width,original.height,1);
         const output=document.createElement("canvas");
         output.width=bounds.width; output.height=bounds.height;
         const out=output.getContext("2d");
@@ -30,7 +30,7 @@ export default function DeclarationSignature({ image }: { image: string }) {
     source.src=image;
     return ()=>{cancelled=true;source.onload=null;};
   },[image]);
-  return <div style={{width:"100%",height:`${SIGNATURE_HEIGHT_MM}mm`,display:"flex",justifyContent:"center",alignItems:"center",marginBottom:`${SIGNATURE_GAP_MM}mm`,padding:"0 2mm",boxSizing:"border-box"}}>
-    <img src={cropped?.source===image?cropped.image:image} alt="Assinatura do declarante" style={{display:"block",maxWidth:"100%",maxHeight:"100%",width:"100%",height:"100%",objectFit:"contain",objectPosition:"center center"}} />
+  return <div style={{width:"100%",height:`${SIGNATURE_HEIGHT_MM}mm`,display:"flex",justifyContent:"center",alignItems:"flex-end",marginBottom:`${SIGNATURE_GAP_MM}mm`,padding:"0 2mm",boxSizing:"border-box"}}>
+    <img src={cropped?.source===image?cropped.image:image} alt="Assinatura do declarante" style={{display:"block",maxWidth:"100%",maxHeight:"100%",width:"100%",height:"100%",objectFit:"contain",objectPosition:"center bottom"}} />
   </div>;
 }

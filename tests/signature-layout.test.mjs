@@ -22,9 +22,17 @@ test("blue pen keeps transparent pixels and soft edges",()=>{
  assert.ok(pixels[0]>=21&&pixels[0]<=31);
  assert.ok(pixels[1]>=57&&pixels[1]<=73);
  assert.ok(pixels[2]>=139&&pixels[2]<=164);
- assert.ok(pixels[3]>=244&&pixels[3]<=255);
+ assert.ok(pixels[3]>=145&&pixels[3]<=165);
  assert.equal(pixels[7],0);
  assert.ok(pixels[11]>0&&pixels[11]<128);
  assert.equal(pixels[15],0);
  assert.equal(SIGNATURE_HEIGHT_MM,10);
+});
+
+test("stroke edges lighter than core, marks preserved",()=>{
+ const p=new Uint8ClampedArray(7*7*4);
+ for(let y=2;y<=4;y++)for(let x=2;x<=4;x++)p[(y*7+x)*4+3]=255;
+ blueInk(p,7);
+ const a=(x,y)=>p[(y*7+x)*4+3];
+ assert.ok(a(3,3)>a(2,3));assert.ok(a(2,3)>0);assert.equal(a(1,3),0);
 });

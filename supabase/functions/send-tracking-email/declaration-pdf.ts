@@ -5,6 +5,7 @@ type Gift = { nome?: string; valor?: number | string };
 export type PdfDeclaration = {
   numero: string; data: string; local?: string; peso_total: number | string; total_itens: number;
   destinatario?: Party; destinatario_snapshot?: Party; remetente_snapshot?: Party;
+  assinatura?: {image: string} | null;
   itens: { quantidade: number; brinde_snapshot?: Gift; brinde?: Gift }[];
 };
 
@@ -138,6 +139,11 @@ export async function buildDeclarationPdf(declaration: PdfDeclaration, sender: P
   const date = parts.length===3 ? `${Number(parts[0])} de ${months[Number(parts[1])-1] ?? parts[1]} de ${parts[2]}` : declaration.data;
   const dateLines = wrap(`${origin.cidade ?? declaration.local ?? ""}, ${date}`,width-225,8.5);
   dateLines.forEach((line,i)=>text(line,margin+8,y+legalHeight-28+i*11,8.5));
+  if (declaration.assinatura?.image) {
+    const signature = await pdf.embedPng(declaration.assinatura.image);
+    const size = signature.scaleToFit(195, 20);
+    page.drawImage(signature, {x: W-margin-109-size.width/2, y: H-y-legalHeight+30, ...size});
+  }
   page.drawLine({start:{x:W-margin-210,y:H-y-legalHeight+29},end:{x:W-margin-8,y:H-y-legalHeight+29},thickness:0.6,color:black});
   text("Assinatura do Declarante/Remetente",W-margin-204,y+legalHeight-25,8); y+=legalHeight+5;
   cell("O B S E R V A Ç Ã O",margin,y,width,18,true,false,"center"); y+=18;

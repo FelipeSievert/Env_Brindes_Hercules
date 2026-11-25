@@ -189,6 +189,7 @@ export async function fetchDeclaracoes(): Promise<Declaracao[]> {
       .select(`
         *,
         destinatario:destinatarios(*),
+        assinatura:declaration_signatures(image),
         itens:declaracao_itens(*, brinde:brindes(*))
       `)
       .is("deleted_at", null)
@@ -199,7 +200,7 @@ export async function fetchDeclaracoes(): Promise<Declaracao[]> {
 }
 
 /** Save the whole batch in one database transaction, including stock and snapshots. */
-export async function insertDeclaracoes(decs: Omit<Declaracao, "id">[]): Promise<Declaracao[]> {
+export async function insertDeclaracoes(decs: Omit<Declaracao, "id">[], signatureVersion?: string): Promise<Declaracao[]> {
   const payload = decs.map(dec => ({
     numero: dec.numero,
     destinatario_id: dec.destinatario.id,
@@ -213,7 +214,9 @@ export async function insertDeclaracoes(decs: Omit<Declaracao, "id">[]): Promise
     itens: dec.itens.map(item => ({ brinde_id: item.brindeId, quantidade: item.quantidade })),
   }));
   // Never retry a mutation whose result may have been committed before a lost response.
-  const { data, error } = await supabase.rpc("create_declaracoes", { p_declaracoes: payload });
+  const { data, error } = signatureVersion
+    ? await supabase.rpc("create_signed_declarations", { p_declaracoes: payload, p_version: signatureVersion })
+    : await supabase.rpc("create_declaracoes", { p_declaracoes: payload });
   if (error) throw new Error(error.message);
   return (data as Record<string, unknown>[]).map(mapDeclaracao);
 }
@@ -288,6 +291,7 @@ function mapDeclaracao(row: Record<string, unknown>): Declaracao {
     id: String(row.id),
     numero: String(row.numero ?? ""),
     destinatario: declarationRecipient(row),
+    assinaturaImagem: (row.assinatura as { image?: string } | null)?.image,
     itens,
     data: String(row.data ?? ""),
     local: String(row.local ?? ""),

@@ -228,6 +228,11 @@ export async function deleteDeclaracao(dec: Declaracao): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export async function registerDeclarationReturn(id: string, motivo: string, itens: { brindeId: string; quantidade: number }[], key: string): Promise<void> {
+  const { error } = await supabase.rpc("register_declaration_return", { p_id: id, p_motivo: motivo.trim(), p_itens: itens, p_key: key });
+  if (error) throw new Error(error.message);
+}
+
 export async function updateDeclaracaoStatus(id: string, status: string): Promise<void> {
   return withRetry(async () => {
     const { error } = await supabase.from("declaracoes").update({ status: normalizeDeclarationStatus(status) }).eq("id", id);

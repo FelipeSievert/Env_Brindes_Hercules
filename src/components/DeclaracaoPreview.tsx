@@ -434,7 +434,7 @@ function DeclaracaoA4({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
-            marginTop: "4mm",
+            marginTop: declaracao.assinaturaImagem ? "1mm" : "4mm",
             gap: "8mm",
           }}
         >

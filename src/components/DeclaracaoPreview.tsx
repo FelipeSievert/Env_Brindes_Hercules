@@ -1,4 +1,5 @@
 import { Printer, Download, Edit, ArrowLeft } from "lucide-react";
+import DeclarationSignature from "./DeclarationSignature";
 import { Declaracao, Configuracoes } from "../types";
 
 interface Props {
@@ -440,8 +441,8 @@ function DeclaracaoA4({
           <div style={{ fontSize: "9pt", whiteSpace: "nowrap", paddingBottom: "3px" }}>
             {r.cidade}, {formatDateLong(declaracao.data)}
           </div>
-          <div style={{ width: "72mm", textAlign: "center" }}>
-            {declaracao.assinaturaImagem && <img src={declaracao.assinaturaImagem} alt="Assinatura do declarante" style={{ width: "100%", height: "10mm", objectFit: "contain", display: "block" }} />}
+          <div style={{ width: "72mm", flex: "0 0 72mm", textAlign: "center" }}>
+            {declaracao.assinaturaImagem && <DeclarationSignature image={declaracao.assinaturaImagem} />}
             <div
               style={{
                 borderTop: "1px solid #000",

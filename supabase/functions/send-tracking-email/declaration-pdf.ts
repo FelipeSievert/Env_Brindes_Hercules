@@ -1,4 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
+import { PNG } from "npm:pngjs@7.0.0";
+import { Buffer } from "node:buffer";
+import { inkBounds } from "./signature-layout.ts";
 
 type Party = { nome?: string; endereco?: string; numero?: string; complemento?: string; cidade?: string; uf?: string; cep?: string; cnpj?: string; cpf_cnpj?: string; aos_cuidados?: string };
 type Gift = { nome?: string; valor?: number | string };
@@ -109,18 +112,19 @@ export async function buildDeclarationPdf(declaration: PdfDeclaration, sender: P
     return { index: index + 1, name, qty, value, height: Math.max(18, wrap(name, columns[1] - 10).length * 11 + 6) };
   });
   const money = (value: number) => value.toFixed(2).replace(".", ",");
+  const reservedFooter = declaration.assinatura?.image ? 265 : 225;
   let y = heading(), rowsThisPage = 0;
   for (const row of values) {
-    if (y + row.height > H - 225) {
+    if (y + row.height > H - reservedFooter) {
       if (!rowsThisPage) throw new Error("Descrição ou endereço muito extenso para gerar o PDF.");
       text("Continua na próxima página.",margin,y+5,8);
       page = pdf.addPage([W,H]); y = heading(); rowsThisPage = 0;
-      if (y + row.height > H - 225) throw new Error("Descrição ou endereço muito extenso para gerar o PDF.");
+      if (y + row.height > H - reservedFooter) throw new Error("Descrição ou endereço muito extenso para gerar o PDF.");
     }
     [row.index, row.name, row.qty, money(row.value)].forEach((value,i)=>cell(value,offsets[i],y,columns[i],row.height,false,false,i===1?"left":i===3?"right":"center"));
     y += row.height; rowsThisPage++;
   }
-  while (rowsThisPage < 6 && y + 18 <= H - 225) {
+  while (rowsThisPage < 6 && y + 18 <= H - reservedFooter) {
     columns.forEach((w,i)=>cell("",offsets[i],y,w,18)); y+=18; rowsThisPage++;
   }
   const labelW = columns[0] + columns[1];
@@ -131,7 +135,7 @@ export async function buildDeclarationPdf(declaration: PdfDeclaration, sender: P
   cell(`${Number(declaration.peso_total).toFixed(3).replace(".",",")} kg`,offsets[2],y,columns[2]+columns[3],18,true,false,"center"); y+=23;
   cell("D E C L A R A Ç Ã O",margin,y,width,18,true,false,"center"); y+=18;
   const legal = "Declaro que não me enquadro no conceito de contribuinte previsto no art. 4º da Lei Complementar nº 87/1996, uma vez que não realizo, com habitualidade ou em volume que caracterize intuito comercial, operações de circulação de mercadoria, ainda que se iniciem no exterior, ou estou dispensado da emissão da nota fiscal por força da legislação tributária vigente, responsabilizando-me, nos termos da lei e a quem de direito, por informações inverídicas.";
-  const legalLines = wrap(legal,width-16,8.5), legalHeight=legalLines.length*12+53;
+  const legalLines = wrap(legal,width-16,8.5), legalHeight=legalLines.length*12+(declaration.assinatura?.image ? 83 : 53);
   box(margin,y,width,legalHeight);
   legalLines.forEach((line,i)=>text(line,margin+8,y+6+i*12,8.5));
   const months = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
@@ -140,9 +144,18 @@ export async function buildDeclarationPdf(declaration: PdfDeclaration, sender: P
   const dateLines = wrap(`${origin.cidade ?? declaration.local ?? ""}, ${date}`,width-225,8.5);
   dateLines.forEach((line,i)=>text(line,margin+8,y+legalHeight-28+i*11,8.5));
   if (declaration.assinatura?.image) {
-    const signature = await pdf.embedPng(declaration.assinatura.image);
-    const size = signature.scaleToFit(195, 20);
-    page.drawImage(signature, {x: W-margin-109-size.width/2, y: H-y-legalHeight+30, ...size});
+    const raw = Buffer.from(declaration.assinatura.image.slice("data:image/png;base64,".length),"base64");
+    if(raw.length<24 || raw.readUInt32BE(16)!==600 || raw.readUInt32BE(20)!==180) throw new Error("Dimensões de assinatura inválidas.");
+    const decoded = PNG.sync.read(raw);
+    const bounds = inkBounds(decoded.data,decoded.width,decoded.height);
+    const pixels = Buffer.alloc(bounds.width*bounds.height*4);
+    for(let row=0;row<bounds.height;row++){
+      const from=((bounds.y+row)*decoded.width+bounds.x)*4;
+      decoded.data.copy(pixels,row*bounds.width*4,from,from+bounds.width*4);
+    }
+    const signature=await pdf.embedPng(PNG.sync.write({width:bounds.width,height:bounds.height,data:pixels}));
+    const size=signature.scaleToFit(191,46);
+    page.drawImage(signature,{x:W-margin-109-size.width/2,y:H-y-legalHeight+30.5,...size});
   }
   page.drawLine({start:{x:W-margin-210,y:H-y-legalHeight+29},end:{x:W-margin-8,y:H-y-legalHeight+29},thickness:0.6,color:black});
   text("Assinatura do Declarante/Remetente",W-margin-204,y+legalHeight-25,8); y+=legalHeight+5;
